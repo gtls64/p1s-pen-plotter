@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <!-- Bezier, quadratic, arc and relative path commands; the second subpath is a heart -->
+  <path d="M10 60 C 10 10, 60 10, 60 60 S 110 110, 110 60" fill="none" stroke="black"/>
+  <path d="M10 100 Q 35 70 60 100 T 110 100" fill="none" stroke="black"/>
+  <path d="M60 30 a 15 15 0 1 1 0.01 0 z" fill="none" stroke="black"/>
+  <path d="m60 112 l-12 -12 a6 6 0 0 1 12 -6 a6 6 0 0 1 12 6 z" fill="red"/>
+</svg>

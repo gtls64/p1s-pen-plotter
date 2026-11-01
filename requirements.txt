@@ -1,0 +1,10 @@
+# Stage 1
+fastapi
+uvicorn
+python-multipart
+svgelements
+numpy
+
+# Tests (httpx is needed by FastAPI's TestClient)
+pytest
+httpx

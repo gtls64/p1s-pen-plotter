@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P1S Pen Plotter</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #d9d9d4;
+    --accent: #1f6feb; --bad: #c62828; --bad-bg: #fdecea; --warn-bg: #fff6e0;
+    --bed: #ffffff; --grid: #ececea; --grid-major: #d4d4cf; --stroke: #111111; --travel: #e57373; --noreach: rgba(198, 40, 40, 0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --text: #ecece8; --muted: #9a9a93; --line: #34342f;
+      --accent: #5b9dff; --bad: #ff6b6b; --bad-bg: #3a1d1d; --warn-bg: #3a321d;
+      --bed: #262624; --grid: #2e2e2b; --grid-major: #3b3b37; --stroke: #f1f1ec; --travel: #e57373; --noreach: rgba(255, 107, 107, 0.12);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; }
+  nav button { background: none; border: 0; padding: 6px 10px; border-radius: 6px; color: var(--muted); font: inherit; cursor: pointer; }
+  nav button.active { background: var(--bg); color: var(--text); font-weight: 600; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 540px) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  canvas { width: 100%; height: auto; display: block; border-radius: 6px; }
+  label { display: block; margin: 8px 0 2px; color: var(--muted); font-size: 13px; }
+  input[type=number], input[type=file] { width: 100%; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+  .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  button.btn { margin-top: 10px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .stat { background: var(--bg); border-radius: 6px; padding: 6px 8px; }
+  .stat b { display: block; font-size: 17px; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .msgs div { margin-top: 8px; padding: 8px 10px; border-radius: 6px; font-size: 14px; }
+  .msgs .bad { background: var(--bad-bg); color: var(--bad); }
+  .msgs .warn { background: var(--warn-bg); }
+  .msgs .ok { color: var(--muted); padding-left: 0; }
+  .hint { color: var(--muted); font-size: 13px; margin: 6px 0; }
+  .tab { display: none; } .tab.active { display: block; }
+  ol { padding-left: 20px; } li { margin-bottom: 4px; }
+  .check { display: flex; gap: 6px; align-items: center; margin-top: 10px; color: var(--muted); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chips button { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+  .chips button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chips input { width: 90px; }
+  .pens { margin-top: 10px; display: grid; gap: 6px; }
+  .pen { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; background: var(--bg); border-radius: 6px; padding: 6px 8px; }
+  .pen .sw { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); }
+  .pen span { font-size: 14px; }
+  .pen select { width: auto; }
+  .items { display: grid; gap: 6px; margin-top: 8px; }
+  .item { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
+  .item.sel { border-color: var(--accent); }
+  .item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+  .item button { background: none; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 0 4px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btns .btn { margin-top: 6px; }
+  #bed { touch-action: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>P1S Pen Plotter</h1>
+  <nav>
+    <button data-tab="draw" class="active">Draw</button>
+    <button data-tab="settings">Settings</button>
+    <button data-tab="calibrate">Calibrate</button>
+  </nav>
+</header>
+<main>
+  <section class="panel">
+    <canvas id="bed" width="512" height="512" aria-label="Bed preview"></canvas>
+    <label class="check"><input type="checkbox" id="showTravel" checked> Show pen-up travel (red dashes)</label>
+    <p class="hint">Bed 256 x 256 mm, grid every 10 mm, origin front-left. Shaded edges: the pen cannot reach there.</p>
+    <p class="hint">Editing: drag an SVG to move it. Corner handles scale (Shift = stretch freely), edge handles stretch one way, the round knob rotates (Shift = 15&deg; steps); hold Alt to scale from the centre. Arrow keys nudge 1 mm (Shift = 10 mm), Delete removes, Ctrl+D duplicates. Scroll over an SVG to scale it.</p>
+  </section>
+
+  <section class="panel">
+    <div class="tab active" id="tab-draw">
+      <label for="file">Add SVG files</label>
+      <input type="file" id="file" accept=".svg,image/svg+xml" multiple>
+      <div class="items" id="items"></div>
+      <div id="editBox" hidden>
+        <div class="row2">
+          <div><label for="width">Width (mm)</label><input type="number" id="width" min="1" max="256" step="1"></div>
+          <div><label for="height">Height (mm)</label><input type="number" id="height" min="1" max="256" step="1"></div>
+          <div><label for="rot">Rotation (degrees, anticlockwise)</label><input type="number" id="rot" step="1"></div>
+          <div><label class="check"><input type="checkbox" id="lockRatio" checked> Keep proportions</label></div>
+          <div><label for="posx">Centre X (mm)</label><input type="number" id="posx" step="1"></div>
+          <div><label for="posy">Centre Y (mm)</label><input type="number" id="posy" step="1"></div>
+        </div>
+        <p class="hint" id="sizeHint"></p>
+        <div class="btns">
+          <button class="btn" id="centre">Centre</button>
+          <button class="btn" id="rotL" title="Turn 90 degrees anticlockwise">&#x27F2; 90&deg;</button>
+          <button class="btn" id="rotR" title="Turn 90 degrees clockwise">&#x27F3; 90&deg;</button>
+          <button class="btn" id="dup">Duplicate</button>
+          <button class="btn" id="remove">Remove</button>
+        </div>
+      </div>
+      <div id="penBox" hidden>
+        <label>Pens (one per colour, shared by all SVGs)</label>
+        <div class="pens" id="pens"></div>
+        <p class="hint">Pick which pen draws each colour. Give two colours the same pen number to draw them with one pen, or choose Skip to leave a colour out. Between pens the printer lifts, comes to the front and pauses so you can swap the pen.</p>
+      </div>
+      <label for="penQuick">Pen tip size (mm)</label>
+      <div class="chips" id="penChips">
+        <button data-w="0.2">0.2</button><button data-w="0.3">0.3</button><button data-w="0.5">0.5</button>
+        <button data-w="0.8">0.8</button><button data-w="1">1.0</button>
+        <input type="number" id="penQuick" step="0.05" min="0.05" max="5" aria-label="Custom pen tip size in mm">
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="sStrokes">-</b><span>strokes</span></div>
+        <div class="stat"><b id="sTime">-</b><span>estimated time</span></div>
+        <div class="stat"><b id="sDist">-</b><span>drawn / travel</span></div>
+        <div class="stat"><b id="sPens">-</b><span>pen changes</span></div>
+      </div>
+      <div class="msgs" id="drawMsgs"></div>
+      <button class="btn primary" id="export" disabled>Download .gcode.3mf</button>
+      <button class="btn" id="exportGcode" disabled>Plain .gcode</button>
+      <p class="hint">In Bambu Studio: untick Bed Leveling, Flow Dynamics Calibration and Timelapse. Do not fit the pen until the printer pauses at the front after homing. At each pause: set the pen tip on the 10 mm cube, tighten, remove the cube, then Resume.</p>
+    </div>
+
+    <div class="tab" id="tab-settings">
+      <p class="hint">Offset = where the pen tip is relative to the nozzle tip (+X right, +Y back). Use the Calibrate tab to measure it.</p>
+      <div class="row2">
+        <div><label for="offset_x">Pen offset X (mm)</label><input type="number" id="offset_x" step="0.1"></div>
+        <div><label for="offset_y">Pen offset Y (mm)</label><input type="number" id="offset_y" step="0.1"></div>
+        <div><label for="holder_front">Holder reach in front of nozzle (mm)</label><input type="number" id="holder_front" step="1" min="0" max="150"></div>
+        <div><button class="btn" id="zFromLength" type="button">Reset Z heights for the 6 mm pen</button></div>
+        <div><label for="z_draw">Pen down Z (mm)</label><input type="number" id="z_draw" step="0.1" min="0.5"></div>
+        <div><label for="z_lift">Pen up Z (mm)</label><input type="number" id="z_lift" step="0.1"></div>
+        <div><label for="draw_speed">Drawing speed (mm/min)</label><input type="number" id="draw_speed" step="100" min="1"></div>
+        <div><label for="travel_speed">Travel speed (mm/min)</label><input type="number" id="travel_speed" step="100" min="1"></div>
+        <div><label for="z_speed">Z speed (mm/min)</label><input type="number" id="z_speed" step="50" min="1"></div>
+        <div><label for="pause_seconds">Pause (s, 0 = wait for Resume)</label><input type="number" id="pause_seconds" step="1" min="0"></div>
+        <div><label for="pen_width">Pen tip size (mm)</label><input type="number" id="pen_width" step="0.05" min="0.05" max="5"></div>
+      </div>
+      <p class="hint" id="zInfo"></p>
+      <p class="hint">Holder reach = how far the front of the pen holder sticks out in front of the nozzle. The nozzle then always stays at least that much + 5 mm back from the front edge, and the pen is fitted and changed there instead of at Y20. The shaded strip at the front of the bed shows where the pen cannot go.</p>
+      <p class="hint"><b>Setting the pen with the cube:</b> at the start and at every pen change the head waits at the front with the nozzle at Z16. Stand the 10 mm cube on the bed under the pen, slide the pen down until its tip rests on the cube, tighten it, then <b>remove the cube</b> before pressing Resume. The pen tip is then exactly 6 mm below the nozzle. Z heights are where the <b>nozzle</b> goes; the pen tip is 6 mm lower.</p>
+      <p class="hint">Pause 0 uses M400 U1: the printer waits until you press Resume on the screen or in the app. A number of seconds gives you that long to clip the pen on instead.</p>
+      <p class="hint">First run? Do a dry run with Pen down Z raised by 5 mm so the pen draws in the air.</p>
+      <button class="btn primary" id="saveSettings">Save settings</button>
+      <div class="msgs" id="settingsMsgs"></div>
+    </div>
+
+    <div class="tab" id="tab-calibrate">
+      <ol>
+        <li>Download the calibration job and print it (pen not fitted at the start).</li>
+        <li>After homing it pauses at the front with the nozzle at Z16: stand the 10 mm cube under the pen, rest the pen tip on it, tighten, <b>remove the cube</b>, then press Resume.</li>
+        <li>It draws a 30 mm cross and a 10 mm circle where it <i>thinks</i> the pen is at bed centre, then parks the <b>nozzle</b> over bed centre and pauses again.</li>
+        <li>Measure from the nozzle tip to the cross centre: X error = cross X - nozzle X (cross to the right = positive), Y error = cross Y - nozzle Y (cross towards the back = positive).</li>
+        <li>Enter the errors below and press Apply: they are ADDED to the current offsets. Repeat until the error is under ~0.5 mm.</li>
+      </ol>
+      <button class="btn" id="calPreview">Show on bed</button>
+      <button class="btn primary" id="calExport">Download calibration .gcode.3mf</button>
+      <div class="row2">
+        <div><label for="errx">Measured X error (mm)</label><input type="number" id="errx" step="0.1" value="0"></div>
+        <div><label for="erry">Measured Y error (mm)</label><input type="number" id="erry" step="0.1" value="0"></div>
+      </div>
+      <button class="btn" id="applyErr">Apply to offsets</button>
+      <div class="msgs" id="calMsgs"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const BED = 256, PX = 2;
+const $ = (id) => document.getElementById(id);
+const SETTING_KEYS = ["offset_x", "offset_y", "z_draw", "z_lift", "draw_speed", "travel_speed", "z_speed", "pause_seconds", "pen_width", "holder_front"];
+const PEN_LENGTH_MM = 6;  // fixed: set with the 10 mm cube while the nozzle waits at Z16 (app/settings.py)
+const FRONT_CLEARANCE_MM = 5;  // matches app/settings.py
+const PRESS_MM = 1, LIFT_CLEAR_MM = 3;  // defaults for "Set Z heights from pen length"
+let settings = null, lastPlan = null, planTimer = null, activeTab = "draw";
+// SVGs on the bed: {id, name, aspect (original height/width), colours, warnings,
+// width, height (mm, before turning), x, y (centre, mm), rot (degrees anticlockwise)}.
+let items = [], sel = -1, penOf = {}, dragging = null, planBusy = false, planAgain = false;
+
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function showMsgs(el, items) {
+  el.innerHTML = "";
+  for (const [cls, text] of items) {
+    const d = document.createElement("div"); d.className = cls; d.textContent = text; el.appendChild(d);
+  }
+}
+
+function fmtTime(s) {
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  return h ? `${h} h ${m} min` : `${m} min`;
+}
+
+async function api(url, opts = {}) {
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    let problems = [`Server error ${res.status}`];
+    try {
+      const body = await res.json();
+      if (body.detail && body.detail.problems) problems = body.detail.problems;
+      else if (typeof body.detail === "string") problems = [body.detail];
+      else if (Array.isArray(body.detail)) problems = body.detail.map(d => `${d.loc.slice(-1)[0]}: ${d.msg}`);
+    } catch (e) {}
+    const err = new Error(problems.join(" ")); err.problems = problems; throw err;
+  }
+  return res;
+}
+
+function drawBed(plan) {
+  const c = $("bed"), g = c.getContext("2d");
+  const X = (x) => x * PX, Y = (y) => (BED - y) * PX;
+  g.fillStyle = css("--bed"); g.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i <= BED; i += 10) {
+    g.strokeStyle = i % 50 === 0 ? css("--grid-major") : css("--grid");
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(X(i) + .5, 0); g.lineTo(X(i) + .5, c.height); g.stroke();
+    g.beginPath(); g.moveTo(0, Y(i) + .5); g.lineTo(c.width, Y(i) + .5); g.stroke();
+  }
+  if (settings) {  // area the pen can reach with the nozzle still on the bed
+    const ox = settings.offset_x, oy = settings.offset_y;
+    const x0 = Math.max(0, ox), x1 = Math.min(BED, BED + ox), y0 = Math.max(0, oy, oy + minNozzleY()), y1 = Math.min(BED, BED + oy);
+    g.fillStyle = css("--noreach");
+    g.fillRect(0, 0, c.width, c.height);
+    g.clearRect(X(x0), Y(y1), (x1 - x0) * PX, (y1 - y0) * PX);
+    g.fillStyle = css("--bed"); g.fillRect(X(x0), Y(y1), (x1 - x0) * PX, (y1 - y0) * PX);
+    for (let i = 0; i <= BED; i += 10) {
+      g.strokeStyle = i % 50 === 0 ? css("--grid-major") : css("--grid");
+      g.beginPath(); g.moveTo(X(i) + .5, Y(y1)); g.lineTo(X(i) + .5, Y(y0)); g.stroke();
+      g.beginPath(); g.moveTo(X(x0), Y(i) + .5); g.lineTo(X(x1), Y(i) + .5); g.stroke();
+    }
+  }
+  if (!plan) { if (activeTab === "draw") drawOutlines(g, X, Y); return; }
+  const layers = planLayers(plan);
+  if ($("showTravel").checked) {
+    g.strokeStyle = css("--travel"); g.lineWidth = 1; g.setLineDash([4, 4]);
+    g.beginPath();
+    for (const layer of layers) {  // every pen starts at the front, where it was fitted
+      let cur = plan.pen_start;
+      for (const p of layer.polys) { g.moveTo(X(cur[0]), Y(cur[1])); g.lineTo(X(p[0][0]), Y(p[0][1])); cur = p[p.length - 1]; }
+    }
+    g.stroke(); g.setLineDash([]);
+  }
+  // Strokes are drawn at the real pen width (2 px per mm), never thinner than 1 px so they stay visible.
+  const penPx = Math.max(1, (settings ? settings.pen_width : 0.4) * PX);
+  g.lineWidth = penPx; g.lineJoin = "round"; g.lineCap = "round";
+  for (const layer of layers) {
+    g.strokeStyle = previewColour(layer.colour);
+    g.beginPath();
+    for (const p of layer.polys) {
+      g.moveTo(X(p[0][0]), Y(p[0][1]));
+      for (let i = 1; i < p.length; i++) g.lineTo(X(p[i][0]), Y(p[i][1]));
+    }
+    g.stroke();
+  }
+  if (activeTab === "draw") drawOutlines(g, X, Y);
+}
+
+const KNOB_MM = 12;  // rotate knob distance above the top edge
+const HANDLE_PX = 9;  // handle squares, canvas pixels
+
+// Dashed box around each SVG; the selected one in the accent colour, with its handles.
+function drawOutlines(g, X, Y) {
+  items.forEach((it, i) => {
+    const pts = corners(it);
+    g.strokeStyle = i === sel ? css("--accent") : css("--muted");
+    g.lineWidth = i === sel ? 2 : 1; g.setLineDash([6, 4]);
+    g.beginPath(); pts.forEach(([x, y], k) => k ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y))); g.closePath(); g.stroke();
+  });
+  g.setLineDash([]);
+  const it = items[sel];
+  if (!it) return;
+  const [tx, ty] = toBed(it, 0, it.height / 2), [kx, ky] = toBed(it, 0, it.height / 2 + KNOB_MM);
+  g.strokeStyle = css("--accent"); g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(X(tx), Y(ty)); g.lineTo(X(kx), Y(ky)); g.stroke();
+  for (const h of handles(it)) {
+    const [x, y] = toBed(it, h.u, h.v);
+    g.fillStyle = h.kind === "rotate" ? css("--accent") : css("--bed");
+    g.beginPath();
+    if (h.kind === "rotate") g.arc(X(x), Y(y), HANDLE_PX / 2 + 1, 0, 2 * Math.PI);
+    else g.rect(X(x) - HANDLE_PX / 2, Y(y) - HANDLE_PX / 2, HANDLE_PX, HANDLE_PX);
+    g.fill(); g.stroke();
+  }
+}
+
+// SVG-local (u right, v up, mm from its centre, before turning) <-> bed mm.
+function toBed(it, u, v) {
+  const a = it.rot * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  return [it.x + u * c - v * s, it.y + u * s + v * c];
+}
+function toLocal(it, x, y) {
+  const a = -it.rot * Math.PI / 180, dx = x - it.x, dy = y - it.y;
+  return [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)];
+}
+
+// Corners (mm) of an SVG's box, turned rot degrees about its centre.
+function corners(it) {
+  const w = it.width / 2, h = it.height / 2;
+  return [[-w, -h], [w, -h], [w, h], [-w, h]].map(([u, v]) => toBed(it, u, v));
+}
+
+// Handles in SVG-local mm. su/sv: which side the handle pulls (-1, 0, +1).
+function handles(it) {
+  const w = it.width / 2, h = it.height / 2, out = [];
+  for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) out.push({ kind: "corner", su, sv, u: su * w, v: sv * h });
+  for (const [su, sv] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) out.push({ kind: "edge", su, sv, u: su * w, v: sv * h });
+  out.push({ kind: "rotate", su: 0, sv: 0, u: 0, v: h + KNOB_MM });
+  return out;
+}
+
+// Is the bed point (x, y) mm inside the SVG's box (with 2 mm grace)?
+function hits(it, x, y) {
+  const [u, v] = toLocal(it, x, y);
+  return Math.abs(u) <= it.width / 2 + 2 && Math.abs(v) <= it.height / 2 + 2;
+}
+
+// Split plan.polylines into pens using plan.layers (stroke counts in drawing order).
+function planLayers(plan) {
+  const meta = plan.layers || [{ colour: "#000000", strokes: plan.polylines.length }];
+  let i = 0;
+  return meta.map(m => ({ colour: m.colour, polys: plan.polylines.slice(i, i += m.strokes) }));
+}
+
+// Black pens use the theme stroke colour so they stay visible on the dark-mode bed.
+function previewColour(c) { return c === "#000000" ? css("--stroke") : c; }
+
+// Every colour used by any SVG, with stroke counts, in order of first appearance.
+function allColours() {
+  const counts = {};
+  for (const it of items) for (const c of it.colours) counts[c.colour] = (counts[c.colour] || 0) + c.strokes;
+  return Object.entries(counts).map(([colour, strokes]) => ({ colour, strokes }));
+}
+
+// Pen number per colour (0 = skip). New colours get the next free pen number.
+function showPens() {
+  const box = $("pens"); box.innerHTML = "";
+  const colours = allColours();
+  for (const c of colours) {
+    if (!(c.colour in penOf)) penOf[c.colour] = Math.max(0, ...Object.values(penOf)) + 1;
+    if (penOf[c.colour] > colours.length) penOf[c.colour] = colours.length;
+  }
+  $("penBox").hidden = colours.length < 2;
+  colours.forEach((c, idx) => {
+    const row = document.createElement("div"); row.className = "pen";
+    const sw = document.createElement("div"); sw.className = "sw"; sw.style.background = c.colour;
+    const txt = document.createElement("span"); txt.textContent = `${c.colour} - ${c.strokes} stroke${c.strokes === 1 ? "" : "s"}`;
+    const sel = document.createElement("select"); sel.setAttribute("aria-label", `Pen for ${c.colour}`);
+    for (let n = 1; n <= colours.length; n++) sel.add(new Option(`Pen ${n}`, n));
+    sel.add(new Option("Skip", 0));
+    sel.value = penOf[c.colour];
+    sel.addEventListener("change", () => { penOf[c.colour] = +sel.value; schedulePlan(); });
+    row.append(sw, txt, sel); box.appendChild(row);
+  });
+}
+
+// Pens in drawing order, each the list of colours it draws (empty pen numbers are dropped).
+function penGroups() {
+  const groups = {};
+  for (const c of allColours()) {
+    const n = penOf[c.colour];
+    if (n > 0) (groups[n] = groups[n] || []).push(c.colour);
+  }
+  return Object.keys(groups).sort((a, b) => a - b).map(n => groups[n]);
+}
+
+function showPlan(plan, msgEl, extra = []) {
+  lastPlan = plan;
+  drawBed(plan);
+  $("sStrokes").textContent = plan.strokes;
+  $("sTime").textContent = fmtTime(plan.seconds);
+  $("sDist").textContent = `${(plan.draw_mm / 1000).toFixed(1)} / ${(plan.travel_mm / 1000).toFixed(1)} m`;
+  $("sPens").textContent = plan.pen_changes || 0;
+  const msgs = extra.map(w => ["warn", w]);
+  if (plan.seconds > 7200) msgs.push(["warn", "This job is estimated at over 2 hours."]);
+  for (const p of plan.problems) msgs.push(["bad", p]);
+  if (!plan.problems.length) msgs.push(["ok", "Pen and nozzle stay on the bed."]);
+  if (plan.pen_changes && !plan.problems.length) {
+    msgs.push(["ok", "Pen order: " + plan.layers.map((l, i) => `${i + 1}. ${l.colour} (${l.strokes})`).join(", ")]);
+  }
+  showMsgs(msgEl, msgs);
+  return plan.problems.length === 0;
+}
+
+function jobName() { return items.map(it => it.name).join("+").slice(0, 60) || "drawing"; }
+
+function layoutBody() {
+  return JSON.stringify({
+    name: jobName(), pens: penGroups(),
+    items: items.map(it => ({ id: it.id, width_mm: it.width, height_mm: it.height, x_mm: it.x, y_mm: it.y, rotation_deg: it.rot })),
+  });
+}
+
+// Area the pen can reach (pen coordinates, mm): [x0, y0, x1, y1].
+function reach() {
+  const ox = settings ? settings.offset_x : 0, oy = settings ? settings.offset_y : 0;
+  return [Math.max(0, ox), Math.max(0, oy, oy + minNozzleY()), Math.min(BED, BED + ox), Math.min(BED, BED + oy)];
+}
+
+function centreItem(it) {
+  const [x0, y0, x1, y1] = reach();
+  it.x = +((x0 + x1) / 2).toFixed(1); it.y = +((y0 + y1) / 2).toFixed(1);
+}
+
+function showItems() {
+  const box = $("items"); box.innerHTML = "";
+  items.forEach((it, i) => {
+    const row = document.createElement("div"); row.className = "item" + (i === sel ? " sel" : "");
+    const name = document.createElement("span"); name.textContent = it.name;
+    const del = document.createElement("button"); del.textContent = "\u2715"; del.title = `Remove ${it.name}`;
+    del.addEventListener("click", (e) => { e.stopPropagation(); removeItem(i); });
+    row.addEventListener("click", () => { select(i); drawBed(lastPlan); });
+    row.append(name, del); box.appendChild(row);
+  });
+  showEditor();
+}
+
+function select(i) { sel = i; showItems(); }
+
+function showEditor() {
+  const it = items[sel];
+  $("editBox").hidden = !it;
+  if (!it) return;
+  $("width").value = +it.width.toFixed(1); $("height").value = +it.height.toFixed(1); $("rot").value = +it.rot.toFixed(1);
+  $("posx").value = +it.x.toFixed(1); $("posy").value = +it.y.toFixed(1);
+  $("sizeHint").textContent = `${it.name}: ${it.width.toFixed(1)} x ${it.height.toFixed(1)} mm (before turning). X/Y is its centre.`;
+}
+
+function removeItem(i) {
+  items.splice(i, 1);
+  sel = Math.min(sel, items.length - 1);
+  showItems(); showPens(); refreshPlan();
+}
+
+// Changes to the selected SVG: update the fields and outline now, the plan as soon as the server is free.
+function itemChanged() { showEditor(); drawBed(lastPlan); refreshPlan(); }
+
+async function refreshPlan() {
+  if (!items.length) {
+    lastPlan = null; drawBed(null); showMsgs($("drawMsgs"), []);
+    for (const id of ["sStrokes", "sTime", "sDist", "sPens"]) $(id).textContent = "-";
+    $("export").disabled = $("exportGcode").disabled = true;
+    return;
+  }
+  if (planBusy) { planAgain = true; return; }
+  planBusy = true;
+  try {
+    const plan = await (await api("/api/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: layoutBody() })).json();
+    const warnings = items.flatMap(it => it.warnings.map(w => `${it.name}: ${w}`));
+    const ok = showPlan(plan, $("drawMsgs"), warnings);
+    $("export").disabled = $("exportGcode").disabled = !ok;
+  } catch (e) {
+    showMsgs($("drawMsgs"), e.problems.map(p => ["bad", p]));
+    $("export").disabled = $("exportGcode").disabled = true;
+  } finally {
+    planBusy = false;
+    if (planAgain) { planAgain = false; refreshPlan(); }
+  }
+}
+
+function schedulePlan() { clearTimeout(planTimer); planTimer = setTimeout(refreshPlan, 250); }
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(",", 2)[1]);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+// Returns the saved path in the desktop app (null if cancelled), or undefined in a browser.
+async function saveBlob(res, fallback) {
+  const cd = res.headers.get("Content-Disposition") || "";
+  const m = cd.match(/filename="([^"]+)"/);
+  const name = m ? m[1] : fallback;
+  const blob = await res.blob();
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.save_file) {
+    return await window.pywebview.api.save_file(name, await blobToBase64(blob));
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function showSaved(el, path) {
+  if (path) showMsgs(el, [["ok", `Saved to ${path}`]]);
+}
+
+async function exportDrawing(fmt) {
+  try {
+    const res = await api(`/api/export?fmt=${fmt}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: layoutBody() });
+    showSaved($("drawMsgs"), await saveBlob(res, `${jobName()}.gcode.3mf`));
+  } catch (e) { showMsgs($("drawMsgs"), (e.problems || [String(e)]).map(p => ["bad", p])); }
+}
+
+function showSettings() {
+  for (const k of SETTING_KEYS) $(k).value = settings[k];
+  $("penQuick").value = settings.pen_width;
+  document.querySelectorAll("#penChips button").forEach(b => b.classList.toggle("active", +b.dataset.w === settings.pen_width));
+  showZInfo();
+}
+
+// Lowest nozzle Y that keeps the always-attached holder clear of the front (mm).
+function minNozzleY() { return settings && settings.holder_front > 0 ? settings.holder_front + FRONT_CLEARANCE_MM : 0; }
+
+function showZInfo() {
+  const len = PEN_LENGTH_MM, press = +(len - +$("z_draw").value).toFixed(2), up = +(+$("z_lift").value - len).toFixed(2);
+  const down = press >= 0 ? `Pen down: the tip presses ${press} mm into the paper (spring compressed).`
+                           : `Pen down: the tip stops ${-press} mm above the paper, so nothing is drawn (dry run).`;
+  $("zInfo").textContent = `${down} Pen up: the tip is ${up} mm above the paper.`;
+}
+
+async function loadSettings() {
+  settings = await (await api("/api/settings")).json();
+  showSettings();
+}
+
+async function saveSettings(values, msgEl = $("settingsMsgs")) {
+  try {
+    settings = await (await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) })).json();
+    showSettings();
+    return true;
+  } catch (e) { showMsgs(msgEl, e.problems.map(p => ["bad", p])); return false; }
+}
+
+async function setPenWidth(w) {
+  if (!(w > 0)) return;
+  if (await saveSettings({ ...settings, pen_width: w }, $("drawMsgs"))) drawBed(lastPlan);
+}
+
+async function calPreview() {
+  try { showPlan(await (await api("/api/calibration/plan")).json(), $("calMsgs")); }
+  catch (e) { showMsgs($("calMsgs"), e.problems.map(p => ["bad", p])); }
+}
+
+// --- wiring ---
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.id === `tab-${b.dataset.tab}`));
+  activeTab = b.dataset.tab;
+  if (b.dataset.tab === "calibrate") calPreview(); else if (b.dataset.tab === "draw") refreshPlan();
+}));
+
+$("file").addEventListener("change", async () => {
+  const problems = [];
+  for (const f of $("file").files) {
+    const fd = new FormData(); fd.append("file", f);
+    try {
+      const d = await (await api("/api/upload", { method: "POST", body: fd })).json();
+      const [, y0, , y1] = reach();
+      const width = Math.min(100, (y1 - y0) * 0.8 / d.aspect);  // fits the reachable height
+      const it = { id: d.id, name: d.name, aspect: d.aspect, colours: d.colours || [], warnings: d.warnings || [],
+                   width, height: width * d.aspect, x: 0, y: 0, rot: 0 };
+      centreItem(it);
+      items.push(it); sel = items.length - 1;
+    } catch (e) { problems.push(...e.problems.map(p => `${f.name}: ${p}`)); }
+  }
+  $("file").value = "";  // lets the same file be added again
+  showItems(); showPens(); await refreshPlan();
+  if (problems.length) showMsgs($("drawMsgs"), problems.map(p => ["bad", p]));
+});
+
+const fields = { width: "width", height: "height", rot: "rot", posx: "x", posy: "y" };
+for (const [id, key] of Object.entries(fields)) {
+  $(id).addEventListener("input", () => {
+    const it = items[sel], v = +$(id).value;
+    if (!it || !Number.isFinite(v) || ((key === "width" || key === "height") && v <= 0)) return;
+    if ($("lockRatio").checked && key === "width") it.height = v * it.height / it.width;
+    if ($("lockRatio").checked && key === "height") it.width = v * it.width / it.height;
+    it[key] = v;
+    if (key === "width" || key === "height") { $("width").value = +it.width.toFixed(1); $("height").value = +it.height.toFixed(1); }
+    drawBed(lastPlan); schedulePlan();
+  });
+}
+$("centre").addEventListener("click", () => { if (items[sel]) { centreItem(items[sel]); itemChanged(); } });
+$("rotL").addEventListener("click", () => { if (items[sel]) { items[sel].rot = (items[sel].rot + 90) % 360; itemChanged(); } });
+$("rotR").addEventListener("click", () => { if (items[sel]) { items[sel].rot = (items[sel].rot - 90) % 360; itemChanged(); } });
+$("dup").addEventListener("click", () => {
+  if (!items[sel]) return;
+  items.push({ ...items[sel], x: items[sel].x + 10, y: items[sel].y - 10 }); sel = items.length - 1;
+  showItems(); itemChanged();
+});
+$("remove").addEventListener("click", () => { if (items[sel]) removeItem(sel); });
+
+// Bed point (mm, pen coordinates) under the mouse or finger.
+function bedPoint(e) {
+  const r = $("bed").getBoundingClientRect();
+  return [(e.clientX - r.left) / r.width * BED, BED - (e.clientY - r.top) / r.height * BED];
+}
+// Handle of the selected SVG under the bed point, within ~10 screen pixels.
+function handleAt(x, y) {
+  const it = items[sel];
+  if (!it) return null;
+  const tol = 10 * BED / $("bed").getBoundingClientRect().width;
+  for (const h of handles(it)) {
+    const [hx, hy] = toBed(it, h.u, h.v);
+    if (Math.hypot(hx - x, hy - y) <= tol) return h;
+  }
+  return null;
+}
+
+// Resize cursor that points the way the handle pulls on screen.
+function cursorFor(it, h) {
+  if (h.kind === "rotate") return "crosshair";
+  const [hx, hy] = toBed(it, h.u, h.v), a = ((Math.atan2(hy - it.y, hx - it.x) * 180 / Math.PI) % 180 + 180) % 180;
+  return a < 22.5 || a >= 157.5 ? "ew-resize" : a < 67.5 ? "nesw-resize" : a < 112.5 ? "ns-resize" : "nwse-resize";
+}
+
+// New size/centre while a corner or edge handle is dragged to the bed point (x, y).
+// Corners keep proportions unless Shift; Alt scales about the centre instead of the opposite side.
+function resize(it, it0, h, x, y, e) {
+  const [pu, pv] = toLocal(it0, x, y), fromCentre = e.altKey, k = fromCentre ? 2 : 1;
+  const au = fromCentre ? 0 : -h.su * it0.width / 2, av = fromCentre ? 0 : -h.sv * it0.height / 2;  // fixed point
+  let w = it0.width, ht = it0.height;
+  if (h.su) w = Math.abs(pu - au) * k;
+  if (h.sv) ht = Math.abs(pv - av) * k;
+  if (h.kind === "corner" && !e.shiftKey) { const f = Math.max(w / it0.width, ht / it0.height); w = it0.width * f; ht = it0.height * f; }
+  w = Math.min(BED, Math.max(1, w)); ht = Math.min(BED, Math.max(1, ht));
+  const [cx, cy] = toBed(it0, fromCentre ? 0 : au + h.su * w / 2, fromCentre ? 0 : av + h.sv * ht / 2);
+  Object.assign(it, { width: +w.toFixed(2), height: +ht.toFixed(2), x: +cx.toFixed(2), y: +cy.toFixed(2) });
+}
+
+function itemAt(x, y) {
+  if (items[sel] && hits(items[sel], x, y)) return sel;  // the selected one wins where they overlap
+  for (let i = items.length - 1; i >= 0; i--) if (hits(items[i], x, y)) return i;
+  return -1;
+}
+$("bed").addEventListener("pointerdown", (e) => {
+  if (activeTab !== "draw") return;
+  const [x, y] = bedPoint(e), h = handleAt(x, y);
+  if (h) {
+    dragging = { handle: h, it0: { ...items[sel] }, x, y };
+  } else {
+    const i = itemAt(x, y);
+    if (i < 0) { if (sel >= 0) { select(-1); drawBed(lastPlan); } return; }  // click on empty bed: deselect
+    select(i);
+    dragging = { handle: null, it0: { ...items[i] }, x, y };
+  }
+  $("bed").setPointerCapture(e.pointerId);
+  drawBed(lastPlan);
+});
+$("bed").addEventListener("pointermove", (e) => {
+  const [x, y] = bedPoint(e);
+  if (!dragging) {  // hover: show what a drag would do
+    if (activeTab !== "draw") return;
+    const h = handleAt(x, y);
+    $("bed").style.cursor = h ? cursorFor(items[sel], h) : itemAt(x, y) >= 0 ? "move" : "default";
+    return;
+  }
+  const it = items[sel], { handle: h, it0 } = dragging;
+  if (!h) {
+    it.x = +(it0.x + x - dragging.x).toFixed(1); it.y = +(it0.y + y - dragging.y).toFixed(1);
+  } else if (h.kind === "rotate") {
+    const turn = Math.atan2(y - it0.y, x - it0.x) - Math.atan2(dragging.y - it0.y, dragging.x - it0.x);
+    let rot = it0.rot + turn * 180 / Math.PI;
+    if (e.shiftKey) rot = Math.round(rot / 15) * 15;
+    it.rot = +((rot % 360 + 540) % 360 - 180).toFixed(1);  // -180..180
+  } else {
+    resize(it, it0, h, x, y, e);
+  }
+  itemChanged();
+});
+$("bed").addEventListener("pointerup", () => { dragging = null; });
+$("bed").addEventListener("pointercancel", () => { dragging = null; });
+$("bed").addEventListener("wheel", (e) => {
+  if (activeTab !== "draw") return;
+  const [x, y] = bedPoint(e), i = itemAt(x, y);
+  if (i < 0) return;
+  e.preventDefault();
+  if (i !== sel) select(i);
+  const it = items[i], up = (e.deltaY || e.deltaX) < 0;  // Shift turns the wheel sideways in some browsers
+  if (e.shiftKey) it.rot = +(it.rot + (up ? 5 : -5)).toFixed(1);
+  else {
+    const f = Math.min(BED / Math.max(it.width, it.height), Math.max(1 / Math.min(it.width, it.height), up ? 1.05 : 1 / 1.05));
+    it.width = +(it.width * f).toFixed(2); it.height = +(it.height * f).toFixed(2);
+  }
+  itemChanged();
+}, { passive: false });
+document.addEventListener("keydown", (e) => {
+  const it = items[sel];
+  if (activeTab !== "draw" || !it || ["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)) return;
+  const step = e.shiftKey ? 10 : 1;
+  const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+  if (moves[e.key]) { it.x = +(it.x + moves[e.key][0]).toFixed(2); it.y = +(it.y + moves[e.key][1]).toFixed(2); itemChanged(); }
+  else if (e.key === "Delete" || e.key === "Backspace") removeItem(sel);
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") $("dup").click();
+  else if (e.key === "Escape") { select(-1); drawBed(lastPlan); }
+  else return;
+  e.preventDefault();
+});
+$("showTravel").addEventListener("change", () => drawBed(lastPlan));
+document.querySelectorAll("#penChips button").forEach(b => b.addEventListener("click", () => setPenWidth(+b.dataset.w)));
+$("penQuick").addEventListener("change", () => setPenWidth(+$("penQuick").value));
+
+
+$("export").addEventListener("click", () => exportDrawing("3mf"));
+$("exportGcode").addEventListener("click", () => exportDrawing("gcode"));
+
+$("saveSettings").addEventListener("click", async () => {
+  const values = Object.fromEntries(SETTING_KEYS.map(k => [k, +$(k).value]));
+  if (await saveSettings(values)) showMsgs($("settingsMsgs"), [["ok", "Saved."]]);
+  drawBed(lastPlan);
+});
+
+for (const k of ["z_draw", "z_lift"]) $(k).addEventListener("input", showZInfo);
+$("zFromLength").addEventListener("click", () => {
+  const len = PEN_LENGTH_MM;
+  $("z_draw").value = Math.max(0.5, +(len - PRESS_MM).toFixed(2));
+  $("z_lift").value = +(len + LIFT_CLEAR_MM).toFixed(2);
+  showZInfo();
+  showMsgs($("settingsMsgs"), [["ok", `Pen down Z = ${len - PRESS_MM} mm, Pen up Z = ${len + LIFT_CLEAR_MM} mm. Press Save to keep them.`]]);
+});
+
+$("calPreview").addEventListener("click", calPreview);
+$("calExport").addEventListener("click", async () => {
+  try { showSaved($("calMsgs"), await saveBlob(await api("/api/calibration/export"), "calibration.gcode.3mf")); }
+  catch (e) { showMsgs($("calMsgs"), (e.problems || [String(e)]).map(p => ["bad", p])); }
+});
+$("applyErr").addEventListener("click", async () => {
+  const values = { ...settings, offset_x: +(settings.offset_x + +$("errx").value).toFixed(2), offset_y: +(settings.offset_y + +$("erry").value).toFixed(2) };
+  if (await saveSettings(values)) {
+    $("errx").value = 0; $("erry").value = 0;
+    await calPreview();
+    showMsgs($("calMsgs"), [["ok", `Offsets are now X ${settings.offset_x} mm, Y ${settings.offset_y} mm. Print the calibration again to check.`]]);
+  } else {
+    showMsgs($("calMsgs"), [["bad", $("settingsMsgs").textContent]]);
+  }
+});
+
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => drawBed(lastPlan));
+loadSettings().then(() => drawBed(null));
+</script>
+</body>
+</html>

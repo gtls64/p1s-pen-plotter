@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="80mm" viewBox="0 0 100 80">
+  <!-- Every basic shape type, plus a transformed group -->
+  <rect x="5" y="5" width="90" height="70" fill="none" stroke="black"/>
+  <rect x="10" y="10" width="20" height="15" rx="3" fill="none" stroke="black"/>
+  <circle cx="50" cy="40" r="15" fill="none" stroke="black"/>
+  <ellipse cx="80" cy="20" rx="8" ry="5" fill="none" stroke="black"/>
+  <line x1="10" y1="70" x2="40" y2="55" stroke="black"/>
+  <polyline points="45,70 50,60 55,70 60,60 65,70" fill="none" stroke="black"/>
+  <polygon points="75,45 90,50 85,65 70,62" fill="none" stroke="black"/>
+  <g transform="translate(20 40) rotate(45)">
+    <rect x="-5" y="-5" width="10" height="10" fill="none" stroke="black"/>
+  </g>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">
+  <!-- Three pens: black outline, red stroked circle and wave, blue filled triangle (fill colour is used) -->
+  <rect x="2" y="2" width="116" height="76" fill="none" stroke="#000"/>
+  <circle cx="35" cy="40" r="22" fill="none" stroke="red"/>
+  <path d="M10 70 Q 30 55 50 70 T 90 70" fill="none" stroke="#e53935"/>
+  <polygon points="80,15 110,60 60,60" fill="rgb(30, 90, 220)"/>
+  <line x1="65" y1="10" x2="110" y2="10" stroke="red"/>
+</svg>

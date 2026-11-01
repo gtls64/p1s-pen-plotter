@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Build output (PyInstaller / Inno Setup) - rebuild with the packaging scripts
+build/
+dist/
+
+# Personal pen calibration - each machine keeps its own
+settings.json
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Local notes and tool config (not part of the project)
+CLAUDE.md
+.claude/

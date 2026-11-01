@@ -1,0 +1,5 @@
+# Only needed to run or build the desktop app (not on a Raspberry Pi server).
+# pywebview: shows the web page in a native window (Edge WebView2 on Windows, WebKit on macOS).
+# pyinstaller: bundles Python and everything into a stand-alone app.
+pywebview
+pyinstaller

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
+  <!-- A simple house-and-sun "logo" with a scaled group -->
+  <g transform="scale(2)">
+    <polygon points="10,45 30,25 50,45" fill="none" stroke="#000"/>
+    <rect x="15" y="45" width="30" height="25" fill="none" stroke="#000"/>
+    <rect x="26" y="55" width="8" height="15" fill="none" stroke="#000"/>
+  </g>
+  <circle cx="150" cy="35" r="18" fill="none" stroke="#000"/>
+  <path d="M150 5 V 12 M150 58 V 65 M120 35 H 127 M173 35 H 180" stroke="#000"/>
+  <text x="120" y="90">TEXT IS SKIPPED</text>
+</svg>
