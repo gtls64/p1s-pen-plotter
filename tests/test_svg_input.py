@@ -65,3 +65,19 @@ def test_samples_parse(name: str) -> None:
     polys = svg_to_polylines((SAMPLES / name).read_bytes()).polylines
     assert len(polys) >= 4
     assert all(len(p) >= 2 for p in polys)
+
+
+def test_fills_are_recorded() -> None:
+    r = svg_to_polylines(svg(
+        '<rect width="10" height="10" fill="red" stroke="blue"/>'
+        '<rect x="20" width="10" height="10" fill="none" stroke="black"/>'
+        '<path fill="#00ff00" fill-rule="evenodd" d="M50 0 h20 v20 h-20 Z M55 5 h5 v5 h-5 Z"/>'
+    ))
+    assert [(f.colour, len(f.rings), f.evenodd) for f in r.fills] == [("#ff0000", 1, False), ("#00ff00", 2, True)]
+    assert r.colours == ["#0000ff", "#000000", "#00ff00", "#00ff00"]  # outlines keep the stroke colour
+    assert r.fill_counts() == {"#ff0000": 1, "#00ff00": 1}
+
+
+def test_fills_sample() -> None:
+    r = svg_to_polylines((SAMPLES / "fills.svg").read_bytes())
+    assert r.fill_counts() == {"#000000": 2, "#e53935": 1, "#1e5adc": 1}

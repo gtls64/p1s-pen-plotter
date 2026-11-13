@@ -123,3 +123,22 @@ def test_stretched_svg(client: TestClient) -> None:
     plan = client.post("/api/plan", json=body).json()
     ys = [p[1] for poly in plan["polylines"] for p in poly]
     assert (min(ys), max(ys)) == pytest.approx((110.5, 145.5), abs=0.01)
+
+
+def test_fills_hatch_and_cross_hatch(client: TestClient) -> None:
+    d = upload(client, "fills.svg")
+    colours = {c["colour"]: c for c in d["colours"]}
+    assert colours["#1e5adc"] == {"colour": "#1e5adc", "strokes": 2, "fills": 1}
+    body = {"items": [{"id": d["id"], "width_mm": 200, "x_mm": 128, "y_mm": 160}], "name": "fills"}
+    outline = client.post("/api/plan", json=body).json()
+    body["fills"] = {"#1E5ADC": {"mode": "hatch", "spacing_mm": 1, "angle_deg": 0}}
+    hatched = client.post("/api/plan", json=body).json()
+    assert hatched["problems"] == []
+    # The blue ring is 70 x 50 units with a 40 x 30 hole; the drawing is 190 units wide, drawn 200 mm wide.
+    ring_mm2 = (70 * 50 - 40 * 30) * (200 / 190) ** 2
+    assert hatched["draw_mm"] - outline["draw_mm"] == pytest.approx(ring_mm2, rel=0.05)  # 1 mm spacing
+    body["fills"]["#1E5ADC"]["mode"] = "cross"
+    crossed = client.post("/api/plan", json=body).json()
+    assert crossed["draw_mm"] - outline["draw_mm"] == pytest.approx(2 * ring_mm2, rel=0.05)
+    body["fills"] = {"#000000": {"mode": "hatch", "spacing_mm": 0.05}}
+    assert client.post("/api/plan", json=body).status_code == 422  # spacing below 0.1 mm

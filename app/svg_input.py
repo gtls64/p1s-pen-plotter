@@ -21,18 +21,37 @@ DEFAULT_COLOUR = "#000000"
 
 
 @dataclass
+class Fill:
+    """The filled area of one shape: closed outlines in SVG user units (holes included), its fill colour
+    ("#rrggbb") and fill rule (even-odd, else non-zero)."""
+
+    colour: str
+    rings: list[Polyline]
+    evenodd: bool = False
+
+
+@dataclass
 class SvgResult:
-    """Polylines in SVG user units (Y down), the colour of each one ("#rrggbb"), and warnings about skipped content."""
+    """Polylines in SVG user units (Y down), the colour of each one ("#rrggbb"), the filled areas,
+    and warnings about skipped content."""
 
     polylines: list[Polyline]
     warnings: list[str] = field(default_factory=list)
     colours: list[str] = field(default_factory=list)
+    fills: list[Fill] = field(default_factory=list)
 
     def colour_counts(self) -> dict[str, int]:
         """Strokes per colour, in order of first appearance."""
         counts: dict[str, int] = {}
         for c in self.colours:
             counts[c] = counts.get(c, 0) + 1
+        return counts
+
+    def fill_counts(self) -> dict[str, int]:
+        """Filled shapes per fill colour, in order of first appearance."""
+        counts: dict[str, int] = {}
+        for f in self.fills:
+            counts[f.colour] = counts.get(f.colour, 0) + 1
         return counts
 
 
@@ -48,9 +67,16 @@ def shape_colour(el: Shape) -> str:
     return DEFAULT_COLOUR
 
 
-def _shape_paths(svg: SVG) -> tuple[list[tuple[Path, str]], list[str]]:
-    """All drawable shapes as (Path with its transform applied, colour)."""
-    paths: list[tuple[Path, str]] = []
+def _fill_of(el: Shape) -> tuple[str, bool] | None:
+    """(fill colour, even-odd rule) if the shape is filled, else None."""
+    if not _visible(el.fill):
+        return None
+    return el.fill.hexrgb.lower(), str(el.values.get("fill-rule", "")).strip().lower() == "evenodd"
+
+
+def _shape_paths(svg: SVG) -> tuple[list[tuple[Path, str, tuple[str, bool] | None]], list[str]]:
+    """All drawable shapes as (Path with its transform applied, colour, fill or None)."""
+    paths: list[tuple[Path, str, tuple[str, bool] | None]] = []
     skipped_text = skipped_images = 0
     for el in svg.elements():
         if isinstance(el, Text):
@@ -60,7 +86,7 @@ def _shape_paths(svg: SVG) -> tuple[list[tuple[Path, str]], list[str]]:
         elif isinstance(el, Shape):
             path = abs(Path(el))  # abs() applies the element's transform
             if len(path) > 0:
-                paths.append((path, shape_colour(el)))
+                paths.append((path, shape_colour(el), _fill_of(el)))
     warnings = []
     if skipped_text:
         warnings.append(f"Skipped {skipped_text} text element(s): convert text to paths in your editor first.")
@@ -106,17 +132,22 @@ def svg_to_polylines(data: bytes) -> SvgResult:
     except Exception as exc:  # svgelements raises a variety of parser errors
         raise ValueError(f"Could not read SVG: {exc}") from exc
     paths, warnings = _shape_paths(svg)
-    boxes = [b for b in (p.bbox() for p, _ in paths) if b is not None]
+    boxes = [b for b in (p.bbox() for p, _, _ in paths) if b is not None]
     if not boxes:
         raise ValueError("The SVG contains no drawable shapes.")
     size = max(max(b[2] for b in boxes) - min(b[0] for b in boxes), max(b[3] for b in boxes) - min(b[1] for b in boxes))
     step = max(size, 1e-9) / CURVE_STEPS
     polys: list[Polyline] = []
     colours: list[str] = []
-    for path, colour in paths:
-        for poly in _path_to_polylines(path, step):
+    fills: list[Fill] = []
+    for path, colour, fill in paths:
+        shape_polys = _path_to_polylines(path, step)
+        for poly in shape_polys:
             polys.append(poly)
             colours.append(colour)
+        rings = [p for p in shape_polys if len(p) >= 3]
+        if fill and rings:
+            fills.append(Fill(fill[0], rings, fill[1]))
     if not polys:
         raise ValueError("The SVG contains no drawable shapes.")
-    return SvgResult(polylines=polys, warnings=warnings, colours=colours)
+    return SvgResult(polylines=polys, warnings=warnings, colours=colours, fills=fills)

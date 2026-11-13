@@ -57,16 +57,20 @@ def layout(polys: list[Polyline], width_mm: float, x_mm: float, y_mm: float, fli
 
 def place(
     polys: list[Polyline], width_mm: float, cx_mm: float, cy_mm: float, rotation_deg: float = 0.0,
-    flip_y: bool = True, height_mm: float | None = None,
+    flip_y: bool = True, height_mm: float | None = None, ref: list[Polyline] | None = None,
 ) -> list[Polyline]:
     """Scale source polylines to width_mm (measured before rotating), optionally flip Y, rotate rotation_deg
     anticlockwise about the drawing's centre, and put that centre at (cx_mm, cy_mm).
 
     height_mm stretches the drawing to that height (before rotating); None keeps its proportions.
+    ref: the whole drawing, when polys is only part of it (size and centre come from ref).
     Source coordinates are in any unit; SVG/image sources are Y-down, so flip_y defaults to True.
     """
-    min_x, min_y, max_x, max_y = bbox(polys)
-    s = _scale_for_width(polys, width_mm)
+    ref = polys if ref is None else ref
+    if not polys:
+        return []
+    min_x, min_y, max_x, max_y = bbox(ref)
+    s = _scale_for_width(ref, width_mm)
     sy = height_mm / (max_y - min_y) if height_mm is not None and max_y > min_y else s
     mx, my = (min_x + max_x) / 2, (min_y + max_y) / 2
     a = math.radians(rotation_deg)
@@ -79,6 +83,55 @@ def place(
             u, v = (x - mx) * s, sign * (y - my) * sy
             placed.append((cx_mm + u * c - v * sn, cy_mm + u * sn + v * c))
         out.append(placed)
+    return out
+
+
+def hatch(rings: list[Polyline], spacing_mm: float, angle_deg: float = 45.0, evenodd: bool = False) -> list[Polyline]:
+    """Parallel lines spacing_mm apart at angle_deg (anticlockwise from +X), clipped to the inside of rings.
+
+    rings are closed outlines (the last point joins back to the first) in mm; holes are rings too.
+    Inside follows the SVG fill rule: non-zero winding, or even-odd if evenodd. Returns 2-point strokes.
+    """
+    if spacing_mm <= 0:
+        raise ValueError("Hatch spacing must be more than 0 mm.")
+    a = math.radians(angle_deg)
+    c, s = math.cos(a), math.sin(a)
+    edges = []
+    for ring in rings:
+        if len(ring) < 3:
+            continue
+        p = np.asarray(ring, dtype=float)
+        # Rotate by -angle so hatch lines run along +X: u = x c + y s, v = -x s + y c.
+        uv = np.column_stack((p[:, 0] * c + p[:, 1] * s, -p[:, 0] * s + p[:, 1] * c))
+        edges.append(np.column_stack((uv, np.roll(uv, -1, axis=0))))
+    if not edges:
+        return []
+    e = np.concatenate(edges)
+    e = e[e[:, 1] != e[:, 3]]  # horizontal edges never cross a scanline
+    if len(e) == 0:
+        return []
+    v_lo, v_hi = min(e[:, 1].min(), e[:, 3].min()), max(e[:, 1].max(), e[:, 3].max())
+    n = max(1, int((v_hi - v_lo) / spacing_mm))
+    first = v_lo + ((v_hi - v_lo) - (n - 1) * spacing_mm) / 2  # centre the lines inside the shape
+    out: list[Polyline] = []
+    for k in range(n):
+        v = first + k * spacing_mm
+        up = (e[:, 1] <= v) & (e[:, 3] > v)
+        down = (e[:, 3] <= v) & (e[:, 1] > v)
+        hit = up | down
+        if not hit.any():
+            continue
+        h = e[hit]
+        u = h[:, 0] + (v - h[:, 1]) * (h[:, 2] - h[:, 0]) / (h[:, 3] - h[:, 1])
+        wind = np.where(up[hit], 1, -1)
+        order = np.argsort(u)
+        u, wind = u[order], wind[order]
+        total = 0
+        for i in range(len(u) - 1):
+            total += wind[i]
+            inside = (total % 2 != 0) if evenodd else total != 0
+            if inside and u[i + 1] - u[i] > 1e-9:
+                out.append([(u[i] * c - v * s, u[i] * s + v * c), (u[i + 1] * c - v * s, u[i + 1] * s + v * c)])
     return out
 
 

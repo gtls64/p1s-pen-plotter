@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="200mm" height="120mm">
+  <!-- Solid black square with a black outline -->
+  <rect x="5" y="5" width="50" height="50" fill="#000000" stroke="#000000" stroke-width="1"/>
+  <!-- Red disc -->
+  <circle cx="90" cy="30" r="25" fill="#e53935"/>
+  <!-- Blue ring: even-odd rule leaves the middle empty -->
+  <path fill="#1e5adc" fill-rule="evenodd" d="M125 5 h70 v50 h-70 Z M140 15 h40 v30 h-40 Z"/>
+  <!-- Black star: non-zero rule fills the centre too -->
+  <polygon fill="#000000" points="30,65 42,115 5,85 55,85 18,115"/>
+  <!-- Red outline only -->
+  <rect x="70" y="65" width="50" height="50" fill="none" stroke="#e53935" stroke-width="1"/>
+</svg>

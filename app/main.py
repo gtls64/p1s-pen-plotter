@@ -6,7 +6,7 @@ import uuid
 from collections import OrderedDict
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -21,6 +21,7 @@ STATIC_DIR = paths.resource_dir() / "static"
 SETTINGS_PATH = paths.data_dir() / "settings.json"
 SIMPLIFY_TOL_MM = 0.05
 MAX_DRAWINGS = 20
+MIN_HATCH_SPACING_MM = 0.1
 
 app = FastAPI(title="P1S Pen Plotter")
 
@@ -40,16 +41,27 @@ class PlacedSvg(BaseModel):
     rotation_deg: float = 0.0
 
 
+class FillStyle(BaseModel):
+    """How to draw the filled areas of one colour: not at all, parallel hatch lines, or cross-hatching
+    (a second set at 90 degrees). spacing_mm between lines; angle_deg anticlockwise from +X on the bed."""
+
+    mode: Literal["none", "hatch", "cross"] = "none"
+    spacing_mm: float = Field(default=1.0, ge=MIN_HATCH_SPACING_MM, le=50)
+    angle_deg: float = 45.0
+
+
 class LayoutRequest(BaseModel):
-    """The SVGs on the bed and which pen draws which colours.
+    """The SVGs on the bed, which pen draws which colours, and how filled areas are drawn.
 
     pens: one entry per pen in drawing order, each a list of SVG colours ("#rrggbb") that pen draws, across
     all SVGs. Colours left out are not drawn. None = one pen per colour, in order of first appearance.
+    fills: fill style per fill colour; colours not listed are not filled (only their outlines are drawn).
     """
 
     items: list[PlacedSvg]
     name: str = "drawing"
     pens: list[list[str]] | None = None
+    fills: dict[str, FillStyle] = {}
 
 
 def _settings() -> Settings:
@@ -63,16 +75,39 @@ def _get_drawing(drawing_id: str) -> SvgResult:
         raise HTTPException(404, "Drawing not found - please upload it again.") from None
 
 
+def _hatching(drawing: SvgResult, item: PlacedSvg, fills: dict[str, FillStyle]) -> tuple[list[geometry.Polyline], list[str]]:
+    """Hatch lines (bed mm) for the filled shapes of one placed SVG, with the fill colour of each line."""
+    lines: list[geometry.Polyline] = []
+    colours: list[str] = []
+    for fill in drawing.fills:
+        style = fills.get(fill.colour)
+        if style is None or style.mode == "none":
+            continue
+        rings = geometry.place(fill.rings, item.width_mm, item.x_mm, item.y_mm, item.rotation_deg,
+                               height_mm=item.height_mm, ref=drawing.polylines)
+        angles = [style.angle_deg] + ([style.angle_deg + 90] if style.mode == "cross" else [])
+        for angle in angles:
+            new = geometry.hatch(rings, style.spacing_mm, angle, fill.evenodd)
+            lines += new
+            colours += [fill.colour] * len(new)
+    return lines, colours
+
+
 def _planned(req: LayoutRequest, s: Settings) -> list[gcode.Layer]:
-    """Place every SVG, split all strokes into one layer per pen, then simplify and order each layer."""
+    """Place every SVG (with hatch lines for filled areas), split all strokes into one layer per pen,
+    then simplify and order each layer."""
     placed: list[geometry.Polyline] = []
     colours: list[str] = []
+    fills = {c.lower(): f for c, f in req.fills.items()}
     for item in req.items:
         drawing = _get_drawing(item.id)
         placed += geometry.place(
             drawing.polylines, item.width_mm, item.x_mm, item.y_mm, item.rotation_deg, height_mm=item.height_mm
         )
         colours += drawing.colours
+        lines, line_colours = _hatching(drawing, item, fills)
+        placed += lines
+        colours += line_colours
     pens = req.pens if req.pens is not None else [[c] for c in dict.fromkeys(colours)]
     layers = []
     for group in pens:
@@ -151,6 +186,12 @@ def put_settings(data: dict[str, Any]) -> dict[str, Any]:
     return asdict(s)
 
 
+def _colour_list(result: SvgResult) -> list[dict[str, Any]]:
+    """Every stroke or fill colour with its stroke and filled-shape counts, in order of first appearance."""
+    strokes, fills = result.colour_counts(), result.fill_counts()
+    return [{"colour": c, "strokes": strokes.get(c, 0), "fills": fills.get(c, 0)} for c in dict.fromkeys([*strokes, *fills])]
+
+
 @app.post("/api/upload")
 async def upload(file: UploadFile = File(...)) -> dict[str, Any]:
     data = await file.read()
@@ -170,7 +211,7 @@ async def upload(file: UploadFile = File(...)) -> dict[str, Any]:
         "name": Path(file.filename or "drawing").stem,
         "aspect": (max_y - min_y) / (max_x - min_x) if max_x > min_x else 1.0,
         "strokes": len(result.polylines),
-        "colours": [{"colour": c, "strokes": n} for c, n in result.colour_counts().items()],
+        "colours": _colour_list(result),
         "warnings": result.warnings,
     }
 

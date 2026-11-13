@@ -86,3 +86,46 @@ def test_place_stretches_to_a_height() -> None:
     src = [[(0.0, 0.0), (20.0, 0.0), (20.0, 10.0)]]
     assert bbox(place(src, 100, 128, 128, height_mm=80)) == pytest.approx((78, 88, 178, 168))
     assert bbox(place(src, 100, 128, 128, rotation_deg=90, height_mm=80)) == pytest.approx((88, 78, 168, 178))
+
+
+def _covered_length(lines: list[geometry.Polyline]) -> float:
+    return sum(geometry.polyline_length(p) for p in lines)
+
+
+def test_hatch_fills_a_square() -> None:
+    square = [[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]]
+    lines = geometry.hatch(square, 1.0, 0)
+    assert len(lines) == 10 and all(len(p) == 2 for p in lines)
+    assert _covered_length(lines) == pytest.approx(100)  # area / spacing
+    ys = sorted(p[0][1] for p in lines)
+    assert ys[0] == pytest.approx(0.5) and ys[-1] == pytest.approx(9.5)  # centred inside the shape
+    for p in geometry.hatch(square, 0.5, 30):
+        for x, y in p:
+            assert -1e-9 <= x <= 10 + 1e-9 and -1e-9 <= y <= 10 + 1e-9
+    assert _covered_length(geometry.hatch(square, 0.5, 30)) == pytest.approx(200, rel=0.03)
+
+
+def test_hatch_angle() -> None:
+    square = [[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]]
+    (a, b), *_ = geometry.hatch(square, 2.0, 90)
+    assert a[0] == pytest.approx(b[0])  # vertical lines
+
+
+def test_hatch_holes_follow_the_fill_rule() -> None:
+    outer = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
+    inner_same_way = [(3.0, 3.0), (7.0, 3.0), (7.0, 7.0), (3.0, 7.0)]
+    inner_reversed = list(reversed(inner_same_way))
+    full, ring = 1000.0, 1000.0 - 160.0  # area / 0.1 mm spacing
+    assert _covered_length(geometry.hatch([outer, inner_same_way], 0.1, 0, evenodd=True)) == pytest.approx(ring, rel=0.02)
+    assert _covered_length(geometry.hatch([outer, inner_same_way], 0.1, 0)) == pytest.approx(full, rel=0.02)
+    assert _covered_length(geometry.hatch([outer, inner_reversed], 0.1, 0)) == pytest.approx(ring, rel=0.02)
+
+
+def test_hatch_rejects_zero_spacing() -> None:
+    with pytest.raises(ValueError):
+        geometry.hatch([[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)]], 0)
+
+
+def test_place_part_of_a_drawing_uses_the_whole_drawing() -> None:
+    whole = [[(0.0, 0.0), (10.0, 0.0)], [(0.0, 10.0), (10.0, 10.0)]]
+    assert geometry.place(whole[:1], 100, 50, 50, ref=whole) == geometry.place(whole, 100, 50, 50)[:1]

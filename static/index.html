@@ -55,6 +55,10 @@
   .pen .sw { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); }
   .pen span { font-size: 14px; }
   .pen select { width: auto; }
+  .pen .fill { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  .pen .fill label { display: inline-flex; gap: 4px; align-items: center; margin: 0; }
+  .pen .fill label[hidden] { display: none; }
+  .pen .fill input { width: 70px; padding: 4px 6px; }
   .items { display: grid; gap: 6px; margin-top: 8px; }
   .item { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
   .item.sel { border-color: var(--accent); }
@@ -106,9 +110,10 @@
         </div>
       </div>
       <div id="penBox" hidden>
-        <label>Pens (one per colour, shared by all SVGs)</label>
+        <label>Pens and fills (one row per colour, shared by all SVGs)</label>
         <div class="pens" id="pens"></div>
-        <p class="hint">Pick which pen draws each colour. Give two colours the same pen number to draw them with one pen, or choose Skip to leave a colour out. Between pens the printer lifts, comes to the front and pauses so you can swap the pen.</p>
+        <p class="hint">Pick which pen draws each colour. Give two colours the same pen number to draw them with one pen, or choose Skip to leave a colour out. Between pens the printer lifts, comes to the front and pauses so you can swap the pen.
+          Filled shapes can be drawn as Solid (lines one pen width apart), Hatch (parallel lines) or Cross-hatch (two sets at right angles).</p>
       </div>
       <label for="penQuick">Pen tip size (mm)</label>
       <div class="chips" id="penChips">
@@ -182,7 +187,8 @@ const PRESS_MM = 1, LIFT_CLEAR_MM = 3;  // defaults for "Set Z heights from pen 
 let settings = null, lastPlan = null, planTimer = null, activeTab = "draw";
 // SVGs on the bed: {id, name, aspect (original height/width), colours, warnings,
 // width, height (mm, before turning), x, y (centre, mm), rot (degrees anticlockwise)}.
-let items = [], sel = -1, penOf = {}, dragging = null, planBusy = false, planAgain = false;
+// fillOf: per fill colour {mode: "none" | "solid" | "hatch" | "cross", spacing (mm), angle (degrees)}.
+let items = [], sel = -1, penOf = {}, fillOf = {}, dragging = null, planBusy = false, planAgain = false;
 
 function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
@@ -330,11 +336,51 @@ function planLayers(plan) {
 // Black pens use the theme stroke colour so they stay visible on the dark-mode bed.
 function previewColour(c) { return c === "#000000" ? css("--stroke") : c; }
 
-// Every colour used by any SVG, with stroke counts, in order of first appearance.
+// Every colour used by any SVG, with stroke and filled-shape counts, in order of first appearance.
 function allColours() {
   const counts = {};
-  for (const it of items) for (const c of it.colours) counts[c.colour] = (counts[c.colour] || 0) + c.strokes;
-  return Object.entries(counts).map(([colour, strokes]) => ({ colour, strokes }));
+  for (const it of items) for (const c of it.colours) {
+    const n = counts[c.colour] = counts[c.colour] || { colour: c.colour, strokes: 0, fills: 0 };
+    n.strokes += c.strokes; n.fills += c.fills || 0;
+  }
+  return Object.values(counts);
+}
+
+const HATCH_SPACING_MM = 1.5;
+
+// Fill controls for one colour: style, and line spacing / angle for hatching.
+function fillControls(c) {
+  const f = fillOf[c.colour] = fillOf[c.colour] || { mode: "none", spacing: HATCH_SPACING_MM, angle: 45 };
+  const box = document.createElement("div"); box.className = "fill";
+  const mode = document.createElement("select"); mode.setAttribute("aria-label", `Fill for ${c.colour}`);
+  for (const [v, txt] of [["none", "Outline only"], ["solid", "Solid"], ["hatch", "Hatch"], ["cross", "Cross-hatch"]]) mode.add(new Option(txt, v));
+  mode.value = f.mode;
+  const num = (label, key, step, min, max) => {
+    const lab = document.createElement("label"); lab.textContent = label;
+    const inp = document.createElement("input"); inp.type = "number"; inp.step = step; inp.min = min; inp.max = max; inp.value = f[key];
+    inp.setAttribute("aria-label", `${label} for ${c.colour}`);
+    inp.addEventListener("input", () => { if (inp.value !== "" && +inp.value >= min) { f[key] = +inp.value; schedulePlan(); } });
+    lab.appendChild(inp); return lab;
+  };
+  const spacing = num("Gap mm", "spacing", 0.1, 0.1, 50), angle = num("Angle", "angle", 15, -360, 360);
+  const sync = () => { spacing.hidden = f.mode !== "hatch" && f.mode !== "cross"; angle.hidden = f.mode === "none"; };
+  mode.addEventListener("change", () => { f.mode = mode.value; sync(); schedulePlan(); });
+  sync();
+  const txt = document.createElement("span"); txt.textContent = `${c.fills} filled shape${c.fills === 1 ? "" : "s"}:`;
+  box.append(txt, mode, spacing, angle);
+  return box;
+}
+
+// Fill style per colour for the API; Solid = hatch lines one pen width apart.
+function fillStyles() {
+  const out = {};
+  for (const [colour, f] of Object.entries(fillOf)) {
+    if (f.mode === "none") continue;
+    const solid = f.mode === "solid";
+    out[colour] = { mode: solid ? "hatch" : f.mode, angle_deg: f.angle,
+                    spacing_mm: Math.max(0.1, solid ? (settings ? settings.pen_width : 0.4) : f.spacing) };
+  }
+  return out;
 }
 
 // Pen number per colour (0 = skip). New colours get the next free pen number.
@@ -345,17 +391,20 @@ function showPens() {
     if (!(c.colour in penOf)) penOf[c.colour] = Math.max(0, ...Object.values(penOf)) + 1;
     if (penOf[c.colour] > colours.length) penOf[c.colour] = colours.length;
   }
-  $("penBox").hidden = colours.length < 2;
+  $("penBox").hidden = colours.length < 2 && !colours.some(c => c.fills);
   colours.forEach((c, idx) => {
     const row = document.createElement("div"); row.className = "pen";
     const sw = document.createElement("div"); sw.className = "sw"; sw.style.background = c.colour;
-    const txt = document.createElement("span"); txt.textContent = `${c.colour} - ${c.strokes} stroke${c.strokes === 1 ? "" : "s"}`;
+    const txt = document.createElement("span");
+    txt.textContent = `${c.colour} - ${c.strokes ? `${c.strokes} stroke${c.strokes === 1 ? "" : "s"}` : "fill only"}`;
     const sel = document.createElement("select"); sel.setAttribute("aria-label", `Pen for ${c.colour}`);
     for (let n = 1; n <= colours.length; n++) sel.add(new Option(`Pen ${n}`, n));
     sel.add(new Option("Skip", 0));
     sel.value = penOf[c.colour];
     sel.addEventListener("change", () => { penOf[c.colour] = +sel.value; schedulePlan(); });
-    row.append(sw, txt, sel); box.appendChild(row);
+    row.append(sw, txt, sel);
+    if (c.fills) row.appendChild(fillControls(c));
+    box.appendChild(row);
   });
 }
 
@@ -391,7 +440,7 @@ function jobName() { return items.map(it => it.name).join("+").slice(0, 60) || "
 
 function layoutBody() {
   return JSON.stringify({
-    name: jobName(), pens: penGroups(),
+    name: jobName(), pens: penGroups(), fills: fillStyles(),
     items: items.map(it => ({ id: it.id, width_mm: it.width, height_mm: it.height, x_mm: it.x, y_mm: it.y, rotation_deg: it.rot })),
   });
 }
@@ -531,7 +580,10 @@ async function saveSettings(values, msgEl = $("settingsMsgs")) {
 
 async function setPenWidth(w) {
   if (!(w > 0)) return;
-  if (await saveSettings({ ...settings, pen_width: w }, $("drawMsgs"))) drawBed(lastPlan);
+  if (await saveSettings({ ...settings, pen_width: w }, $("drawMsgs"))) {
+    drawBed(lastPlan);
+    if (Object.values(fillOf).some(f => f.mode === "solid")) schedulePlan();
+  }
 }
 
 async function calPreview() {
