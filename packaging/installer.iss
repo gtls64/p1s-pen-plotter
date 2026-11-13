@@ -3,7 +3,7 @@
 ; Installs for the current user only, so no administrator prompt.
 
 #define AppName "P1S Plotter"
-#define AppVersion "0.1.0"
+#define AppVersion "0.2.0"
 ; build_windows.ps1 passes /DAppSource=<short copy of dist\P1S Plotter> because Inno Setup
 ; cannot read files whose full path is longer than 260 characters.
 #ifndef AppSource

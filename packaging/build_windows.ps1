@@ -30,7 +30,7 @@ if ($iscc) {
     $code = $LASTEXITCODE
     Remove-Item $stage -Recurse -Force
     if ($code -ne 0) { throw "Inno Setup failed." }
-    Write-Host "Installer: dist\P1S-Plotter-Setup-0.1.0.exe"
+    Write-Host "Installer: dist\P1S-Plotter-Setup-<version>.exe (version set in packaging\installer.iss)"
 } else {
     Write-Host "Inno Setup 6 not found - skipped the installer. Get it from https://jrsoftware.org/isinfo.php"
 }
