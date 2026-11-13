@@ -6,72 +6,121 @@
 <title>P1S Pen Plotter</title>
 <style>
   :root {
-    --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #d9d9d4;
-    --accent: #1f6feb; --bad: #c62828; --bad-bg: #fdecea; --warn-bg: #fff6e0;
-    --bed: #ffffff; --grid: #ececea; --grid-major: #d4d4cf; --stroke: #111111; --travel: #e57373; --noreach: rgba(198, 40, 40, 0.10);
+    --bg: #eeece6; --panel: #f8f7f3; --text: #1c1b19; --muted: #6f6c64; --line: #d6d2c8; --rule: #c4bfb2;
+    --accent: #c8451c; --accent-ink: #ffffff; --bad: #b3261e; --bad-bg: #f6e1dc; --warn-bg: #f3ead2;
+    --bed: #fcfbf7; --grid: #e4e7ea; --grid-major: #c7ced6; --stroke: #15140f; --travel: #8a97a6; --noreach: rgba(110, 104, 92, 0.16);
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+    --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #161615; --panel: #1f1f1d; --text: #ecece8; --muted: #9a9a93; --line: #34342f;
-      --accent: #5b9dff; --bad: #ff6b6b; --bad-bg: #3a1d1d; --warn-bg: #3a321d;
-      --bed: #262624; --grid: #2e2e2b; --grid-major: #3b3b37; --stroke: #f1f1ec; --travel: #e57373; --noreach: rgba(255, 107, 107, 0.12);
+      --bg: #141413; --panel: #1b1b19; --text: #e9e6de; --muted: #9a968b; --line: #2f2e2a; --rule: #3d3b35;
+      --accent: #ff7247; --accent-ink: #1a0d07; --bad: #ff8a7a; --bad-bg: #3a1f1a; --warn-bg: #352d19;
+      --bed: #1f1f1d; --grid: #292927; --grid-major: #3a3a36; --stroke: #f2efe7; --travel: #6f7c8b; --noreach: rgba(255, 255, 255, 0.05);
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-  header h1 { font-size: 17px; margin: 0; }
-  nav button { background: none; border: 0; padding: 6px 10px; border-radius: 6px; color: var(--muted); font: inherit; cursor: pointer; }
-  nav button.active { background: var(--bg); color: var(--text); font-weight: 600; }
-  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 540px) minmax(0, 1fr); gap: 16px; }
-  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
-  canvas { width: 100%; height: auto; display: block; border-radius: 6px; }
-  label { display: block; margin: 8px 0 2px; color: var(--muted); font-size: 13px; }
-  input[type=number], input[type=file] { width: 100%; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
-  .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  button.btn { margin-top: 10px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button:disabled { opacity: .5; cursor: default; }
-  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
-  .stat { background: var(--bg); border-radius: 6px; padding: 6px 8px; }
-  .stat b { display: block; font-size: 17px; }
-  .stat span { color: var(--muted); font-size: 12px; }
-  .msgs div { margin-top: 8px; padding: 8px 10px; border-radius: 6px; font-size: 14px; }
-  .msgs .bad { background: var(--bad-bg); color: var(--bad); }
-  .msgs .warn { background: var(--warn-bg); }
-  .msgs .ok { color: var(--muted); padding-left: 0; }
-  .hint { color: var(--muted); font-size: 13px; margin: 6px 0; }
-  .tab { display: none; } .tab.active { display: block; }
-  ol { padding-left: 20px; } li { margin-bottom: 4px; }
-  .check { display: flex; gap: 6px; align-items: center; margin-top: 10px; color: var(--muted); font-size: 13px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .chips button { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
-  .chips button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .chips input { width: 90px; }
-  .pens { margin-top: 10px; display: grid; gap: 6px; }
-  .pen { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; background: var(--bg); border-radius: 6px; padding: 6px 8px; }
-  .pen .sw { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); }
-  .pen span { font-size: 14px; }
-  .pen select { width: auto; }
-  .pen .fill { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
-  .pen .fill label { display: inline-flex; gap: 4px; align-items: center; margin: 0; }
-  .pen .fill label[hidden] { display: none; }
-  .pen .fill input { width: 70px; padding: 4px 6px; }
-  .items { display: grid; gap: 6px; margin-top: 8px; }
-  .item { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
-  .item.sel { border-color: var(--accent); }
-  .item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-  .item button { background: none; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 0 4px; }
-  .btns { display: flex; flex-wrap: wrap; gap: 6px; }
-  .btns .btn { margin-top: 6px; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
+  .num, input[type=number], .status b, .pen .hex { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  header { display: flex; align-items: stretch; gap: 24px; padding: 0 20px; border-bottom: 1px solid var(--rule); background: var(--panel); }
+  .mark { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
+  .mark svg { flex: none; }
+  .mark b { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+  .mark span { color: var(--muted); font-size: 12px; }
+  nav { display: flex; margin-left: auto; }
+  nav button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0 12px; color: var(--muted); font: inherit; cursor: pointer; }
+  nav button:hover { color: var(--text); }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+  @media (max-width: 880px) { main { grid-template-columns: 1fr; padding: 12px; gap: 12px; } header { padding: 0 12px; gap: 12px; } .mark span { display: none; } }
+
+  .sheet { background: var(--panel); border: 1px solid var(--rule); padding: 12px; position: sticky; top: 12px; }
+  @media (max-width: 880px) { .sheet { position: static; } }
+  canvas { width: 100%; height: auto; display: block; border: 1px solid var(--line); }
   #bed { touch-action: none; }
+  .status { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .status div { display: flex; gap: 6px; align-items: baseline; }
+  .status b { color: var(--text); font-size: 13px; font-weight: 500; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 18px; height: 0; border-top: 1px dashed var(--travel); vertical-align: middle; margin-right: 4px; }
+  .legend .zone { width: 12px; height: 10px; border: 0; background: var(--noreach); outline: 1px solid var(--line); }
+
+  .side { background: var(--panel); border: 1px solid var(--rule); }
+  .tab { display: none; } .tab.active { display: block; }
+  section.step { padding: 14px 16px 16px; border-top: 1px solid var(--line); }
+  section.step:first-child { border-top: 0; }
+  h2 { margin: 0 0 10px; font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; gap: 8px; }
+  .tab { counter-reset: step; }
+  section.step h2::before { counter-increment: step; content: counter(step, decimal-leading-zero); color: var(--accent); }
+  section.step:not(:has(h2)) { padding-top: 0; border-top: 0; }
+
+  label { display: block; margin: 10px 0 3px; color: var(--muted); font-size: 12px; }
+  input[type=number] { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 2px; background: var(--bed); color: var(--text); font-size: 13px; }
+  input[type=number]:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+  select { padding: 5px 6px; border: 1px solid var(--line); border-radius: 2px; background: var(--bed); color: var(--text); font: inherit; font-size: 13px; }
+  input[type=file] { width: 100%; font: inherit; font-size: 13px; color: var(--muted); padding: 10px; border: 1px dashed var(--rule); background: var(--bed); cursor: pointer; }
+  input[type=file]::file-selector-button { margin-right: 10px; padding: 6px 10px; border: 1px solid var(--text); border-radius: 2px; background: var(--text); color: var(--panel); font: inherit; cursor: pointer; }
+  .row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
+
+  button.btn { padding: 7px 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--panel); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+  button.btn:hover:not(:disabled) { border-color: var(--text); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.06); border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .actions { display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-top: 12px; }
+
+  .msgs div { margin-top: 8px; padding: 7px 10px; font-size: 13px; border-left: 3px solid transparent; }
+  .msgs .bad { background: var(--bad-bg); color: var(--bad); border-left-color: var(--bad); }
+  .msgs .warn { background: var(--warn-bg); border-left-color: #c99a2e; }
+  .msgs .ok { color: var(--muted); padding: 0; margin-top: 6px; }
+  .hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+  details.help { margin-top: 12px; font-size: 13px; color: var(--muted); }
+  details.help summary { cursor: pointer; color: var(--text); font-size: 12px; list-style: none; }
+  details.help summary::-webkit-details-marker { display: none; }
+  details.help summary::before { content: "+ "; font-family: var(--mono); color: var(--accent); }
+  details.help[open] summary::before { content: "\2212 "; }
+  details.help p { margin: 8px 0 0; }
+  ol { padding-left: 20px; margin: 0; } li { margin-bottom: 6px; }
+  .check { display: flex; gap: 6px; align-items: center; margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+  .check input { accent-color: var(--accent); }
+
+  .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--rule); border-radius: 2px; }
+  .seg button { padding: 5px 10px; border: 0; border-left: 1px solid var(--rule); background: var(--bed); color: var(--text); font: 13px var(--mono); cursor: pointer; }
+  .seg button:first-child { border-left: 0; }
+  .seg button.active { background: var(--text); color: var(--panel); }
+  .chips { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chips input { width: 80px; }
+
+  .items { display: grid; margin-top: 10px; }
+  .item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid transparent; border-bottom-color: var(--line); cursor: pointer; }
+  .item:hover { background: var(--bed); }
+  .item.sel { border-color: var(--accent); background: var(--bed); }
+  .item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .item button { background: none; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 0 4px; }
+  .item button:hover { color: var(--bad); }
+
+  .pens { display: grid; }
+  .pen { display: grid; grid-template-columns: 14px 1fr auto; gap: 4px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .pen:last-child { border-bottom: 0; }
+  .pen .sw { width: 14px; height: 14px; border: 1px solid rgba(0, 0, 0, .25); }
+  .pen span { font-size: 13px; }
+  .pen .hex { font-size: 12px; font-weight: 500; }
+  .pen .fill { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12px; color: var(--muted); }
+  .pen .fill label { display: inline-flex; gap: 5px; align-items: center; margin: 0; }
+  .pen .fill label[hidden] { display: none; }
+  .pen .fill input { width: 64px; padding: 3px 6px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>P1S Pen Plotter</h1>
+  <div class="mark">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" fill="none" stroke="currentColor"/><path d="M5 16 C8 6, 12 18, 17 6" fill="none" stroke="var(--accent)" stroke-width="1.6"/></svg>
+    <b>P1S Plotter</b><span>pen plotting for the Bambu Lab P1S</span>
+  </div>
   <nav>
     <button data-tab="draw" class="active">Draw</button>
     <button data-tab="settings">Settings</button>
@@ -79,102 +128,151 @@
   </nav>
 </header>
 <main>
-  <section class="panel">
+  <div class="sheet">
     <canvas id="bed" width="512" height="512" aria-label="Bed preview"></canvas>
-    <label class="check"><input type="checkbox" id="showTravel" checked> Show pen-up travel (red dashes)</label>
-    <p class="hint">Bed 256 x 256 mm, grid every 10 mm, origin front-left. Shaded edges: the pen cannot reach there.</p>
-    <p class="hint">Editing: drag an SVG to move it. Corner handles scale (Shift = stretch freely), edge handles stretch one way, the round knob rotates (Shift = 15&deg; steps); hold Alt to scale from the centre. Arrow keys nudge 1 mm (Shift = 10 mm), Delete removes, Ctrl+D duplicates. Scroll over an SVG to scale it.</p>
-  </section>
+    <div class="status" aria-live="polite">
+      <div>Strokes <b id="sStrokes">-</b></div>
+      <div>Time <b id="sTime">-</b></div>
+      <div>Drawn / travel <b id="sDist">-</b></div>
+      <div>Pen changes <b id="sPens">-</b></div>
+    </div>
+    <div class="legend">
+      <label class="check" style="margin:0"><input type="checkbox" id="showTravel" checked> <i></i>Pen-up travel</label>
+      <span><i class="zone"></i> Out of reach</span>
+      <span class="num">256 &times; 256 mm &middot; 10 mm grid &middot; origin front-left</span>
+    </div>
+    <details class="help">
+      <summary>Mouse and keyboard</summary>
+      <p>Drag to move. Corner handles scale (Shift: free), edge handles stretch, the round knob rotates (Shift: 15&deg; steps), Alt scales from the centre. Scroll to scale. Arrows nudge 1 mm (Shift: 10 mm), Delete removes, Ctrl+D duplicates, Esc deselects.</p>
+    </details>
+  </div>
 
-  <section class="panel">
+  <div class="side">
     <div class="tab active" id="tab-draw">
-      <label for="file">Add SVG files</label>
-      <input type="file" id="file" accept=".svg,image/svg+xml" multiple>
-      <div class="items" id="items"></div>
-      <div id="editBox" hidden>
-        <div class="row2">
-          <div><label for="width">Width (mm)</label><input type="number" id="width" min="1" max="256" step="1"></div>
-          <div><label for="height">Height (mm)</label><input type="number" id="height" min="1" max="256" step="1"></div>
-          <div><label for="rot">Rotation (degrees, anticlockwise)</label><input type="number" id="rot" step="1"></div>
-          <div><label class="check"><input type="checkbox" id="lockRatio" checked> Keep proportions</label></div>
-          <div><label for="posx">Centre X (mm)</label><input type="number" id="posx" step="1"></div>
-          <div><label for="posy">Centre Y (mm)</label><input type="number" id="posy" step="1"></div>
+      <section class="step">
+        <h2>Artwork</h2>
+        <input type="file" id="file" accept=".svg,image/svg+xml" multiple aria-label="Add SVG files">
+        <div class="items" id="items"></div>
+        <div id="editBox" hidden>
+          <div class="row2">
+            <div><label for="width">Width mm</label><input type="number" id="width" min="1" max="256" step="1"></div>
+            <div><label for="height">Height mm</label><input type="number" id="height" min="1" max="256" step="1"></div>
+            <div><label for="posx">Centre X mm</label><input type="number" id="posx" step="1"></div>
+            <div><label for="posy">Centre Y mm</label><input type="number" id="posy" step="1"></div>
+            <div><label for="rot">Rotation &deg; (anticlockwise)</label><input type="number" id="rot" step="1"></div>
+            <div><label class="check" style="margin-top:28px"><input type="checkbox" id="lockRatio" checked> Keep proportions</label></div>
+          </div>
+          <p class="hint num" id="sizeHint"></p>
+          <div class="btns">
+            <button class="btn" id="centre">Centre</button>
+            <button class="btn" id="rotL" title="Turn 90 degrees anticlockwise">&#x27F2; 90&deg;</button>
+            <button class="btn" id="rotR" title="Turn 90 degrees clockwise">&#x27F3; 90&deg;</button>
+            <button class="btn" id="dup">Duplicate</button>
+            <button class="btn" id="remove">Remove</button>
+          </div>
         </div>
-        <p class="hint" id="sizeHint"></p>
-        <div class="btns">
-          <button class="btn" id="centre">Centre</button>
-          <button class="btn" id="rotL" title="Turn 90 degrees anticlockwise">&#x27F2; 90&deg;</button>
-          <button class="btn" id="rotR" title="Turn 90 degrees clockwise">&#x27F3; 90&deg;</button>
-          <button class="btn" id="dup">Duplicate</button>
-          <button class="btn" id="remove">Remove</button>
-        </div>
-      </div>
-      <div id="penBox" hidden>
-        <label>Pens and fills (one row per colour, shared by all SVGs)</label>
+      </section>
+
+      <section class="step" id="penBox" hidden>
+        <h2>Pens &amp; fills</h2>
         <div class="pens" id="pens"></div>
-        <p class="hint">Pick which pen draws each colour. Give two colours the same pen number to draw them with one pen, or choose Skip to leave a colour out. Between pens the printer lifts, comes to the front and pauses so you can swap the pen.
-          Filled shapes can be drawn as Solid (lines one pen width apart), Hatch (parallel lines) or Cross-hatch (two sets at right angles).</p>
-      </div>
-      <label for="penQuick">Pen tip size (mm)</label>
-      <div class="chips" id="penChips">
-        <button data-w="0.2">0.2</button><button data-w="0.3">0.3</button><button data-w="0.5">0.5</button>
-        <button data-w="0.8">0.8</button><button data-w="1">1.0</button>
-        <input type="number" id="penQuick" step="0.05" min="0.05" max="5" aria-label="Custom pen tip size in mm">
-      </div>
-      <div class="stats">
-        <div class="stat"><b id="sStrokes">-</b><span>strokes</span></div>
-        <div class="stat"><b id="sTime">-</b><span>estimated time</span></div>
-        <div class="stat"><b id="sDist">-</b><span>drawn / travel</span></div>
-        <div class="stat"><b id="sPens">-</b><span>pen changes</span></div>
-      </div>
-      <div class="msgs" id="drawMsgs"></div>
-      <button class="btn primary" id="export" disabled>Download .gcode.3mf</button>
-      <button class="btn" id="exportGcode" disabled>Plain .gcode</button>
-      <p class="hint">In Bambu Studio: untick Bed Leveling, Flow Dynamics Calibration and Timelapse. Do not fit the pen until the printer pauses at the front after homing. At each pause: set the pen tip on the 10 mm cube, tighten, remove the cube, then Resume.</p>
+        <details class="help">
+          <summary>How pens and fills work</summary>
+          <p>Each colour gets a pen. Give two colours the same number to draw them together, or Skip one. Between pens the head comes to the front and pauses for the swap.</p>
+          <p>Solid draws lines one pen width apart. Hatch uses your gap and angle; Cross-hatch adds a second set at 90&deg;.</p>
+        </details>
+      </section>
+
+      <section class="step">
+        <h2>Pen tip mm</h2>
+        <div class="chips">
+          <div class="seg" id="penChips">
+            <button data-w="0.2">0.2</button><button data-w="0.3">0.3</button><button data-w="0.5">0.5</button><button data-w="0.8">0.8</button><button data-w="1">1.0</button>
+          </div>
+          <input type="number" id="penQuick" step="0.05" min="0.05" max="5" aria-label="Custom pen tip size in mm">
+        </div>
+      </section>
+
+      <section class="step">
+        <h2>Export</h2>
+        <div class="msgs" id="drawMsgs"></div>
+        <div class="actions">
+          <button class="btn primary" id="export" disabled>Download .gcode.3mf</button>
+          <button class="btn" id="exportGcode" disabled>.gcode</button>
+        </div>
+        <details class="help">
+          <summary>Printing it</summary>
+          <p>In Bambu Studio, untick Bed Leveling, Flow Dynamics Calibration and Timelapse. Fit the pen only when the head pauses at the front after homing. At each pause, rest the pen tip on the 10 mm cube, tighten, take the cube away and press Resume.</p>
+        </details>
+      </section>
     </div>
 
     <div class="tab" id="tab-settings">
-      <p class="hint">Offset = where the pen tip is relative to the nozzle tip (+X right, +Y back). Use the Calibrate tab to measure it.</p>
-      <div class="row2">
-        <div><label for="offset_x">Pen offset X (mm)</label><input type="number" id="offset_x" step="0.1"></div>
-        <div><label for="offset_y">Pen offset Y (mm)</label><input type="number" id="offset_y" step="0.1"></div>
-        <div><label for="holder_front">Holder reach in front of nozzle (mm)</label><input type="number" id="holder_front" step="1" min="0" max="150"></div>
-        <div><button class="btn" id="zFromLength" type="button">Reset Z heights for the 6 mm pen</button></div>
-        <div><label for="z_draw">Pen down Z (mm)</label><input type="number" id="z_draw" step="0.1" min="0.5"></div>
-        <div><label for="z_lift">Pen up Z (mm)</label><input type="number" id="z_lift" step="0.1"></div>
-        <div><label for="draw_speed">Drawing speed (mm/min)</label><input type="number" id="draw_speed" step="100" min="1"></div>
-        <div><label for="travel_speed">Travel speed (mm/min)</label><input type="number" id="travel_speed" step="100" min="1"></div>
-        <div><label for="z_speed">Z speed (mm/min)</label><input type="number" id="z_speed" step="50" min="1"></div>
-        <div><label for="pause_seconds">Pause (s, 0 = wait for Resume)</label><input type="number" id="pause_seconds" step="1" min="0"></div>
-        <div><label for="pen_width">Pen tip size (mm)</label><input type="number" id="pen_width" step="0.05" min="0.05" max="5"></div>
-      </div>
-      <p class="hint" id="zInfo"></p>
-      <p class="hint">Holder reach = how far the front of the pen holder sticks out in front of the nozzle. The nozzle then always stays at least that much + 5 mm back from the front edge, and the pen is fitted and changed there instead of at Y20. The shaded strip at the front of the bed shows where the pen cannot go.</p>
-      <p class="hint"><b>Setting the pen with the cube:</b> at the start and at every pen change the head waits at the front with the nozzle at Z16. Stand the 10 mm cube on the bed under the pen, slide the pen down until its tip rests on the cube, tighten it, then <b>remove the cube</b> before pressing Resume. The pen tip is then exactly 6 mm below the nozzle. Z heights are where the <b>nozzle</b> goes; the pen tip is 6 mm lower.</p>
-      <p class="hint">Pause 0 uses M400 U1: the printer waits until you press Resume on the screen or in the app. A number of seconds gives you that long to clip the pen on instead.</p>
-      <p class="hint">First run? Do a dry run with Pen down Z raised by 5 mm so the pen draws in the air.</p>
-      <button class="btn primary" id="saveSettings">Save settings</button>
-      <div class="msgs" id="settingsMsgs"></div>
+      <section class="step">
+        <h2>Pen position</h2>
+        <div class="row2">
+          <div><label for="offset_x">Offset X mm</label><input type="number" id="offset_x" step="0.1"></div>
+          <div><label for="offset_y">Offset Y mm</label><input type="number" id="offset_y" step="0.1"></div>
+          <div><label for="holder_front">Holder reach mm</label><input type="number" id="holder_front" step="1" min="0" max="150"></div>
+          <div><label for="pen_width">Pen tip mm</label><input type="number" id="pen_width" step="0.05" min="0.05" max="5"></div>
+        </div>
+        <p class="hint">Offset is the pen tip relative to the nozzle (+X right, +Y back); measure it on the Calibrate tab. Holder reach is how far the holder sticks out in front of the nozzle.</p>
+      </section>
+      <section class="step">
+        <h2>Heights</h2>
+        <div class="row2">
+          <div><label for="z_draw">Pen down Z mm</label><input type="number" id="z_draw" step="0.1" min="0.5"></div>
+          <div><label for="z_lift">Pen up Z mm</label><input type="number" id="z_lift" step="0.1"></div>
+        </div>
+        <p class="hint" id="zInfo"></p>
+        <div class="btns"><button class="btn" id="zFromLength" type="button">Reset to 5 / 9 mm</button></div>
+        <details class="help">
+          <summary>Setting the pen with the cube</summary>
+          <p>At the start and at every pen change the head waits at the front with the nozzle at Z16. Stand the 10 mm cube under the pen, slide the pen down onto it, tighten, then <b>remove the cube</b> and press Resume. The tip is then 6 mm below the nozzle. Z values are nozzle heights.</p>
+          <p>First run: raise Pen down Z by 5 mm so the pen draws in the air.</p>
+        </details>
+      </section>
+      <section class="step">
+        <h2>Motion</h2>
+        <div class="row2">
+          <div><label for="draw_speed">Drawing mm/min</label><input type="number" id="draw_speed" step="100" min="1"></div>
+          <div><label for="travel_speed">Travel mm/min</label><input type="number" id="travel_speed" step="100" min="1"></div>
+          <div><label for="z_speed">Z mm/min</label><input type="number" id="z_speed" step="50" min="1"></div>
+          <div><label for="pause_seconds">Pause s (0 = wait)</label><input type="number" id="pause_seconds" step="1" min="0"></div>
+        </div>
+        <p class="hint">Pause 0 waits until you press Resume. A number of seconds continues on its own after that long.</p>
+      </section>
+      <section class="step">
+        <button class="btn primary" id="saveSettings">Save settings</button>
+        <div class="msgs" id="settingsMsgs"></div>
+      </section>
     </div>
 
     <div class="tab" id="tab-calibrate">
-      <ol>
-        <li>Download the calibration job and print it (pen not fitted at the start).</li>
-        <li>After homing it pauses at the front with the nozzle at Z16: stand the 10 mm cube under the pen, rest the pen tip on it, tighten, <b>remove the cube</b>, then press Resume.</li>
-        <li>It draws a 30 mm cross and a 10 mm circle where it <i>thinks</i> the pen is at bed centre, then parks the <b>nozzle</b> over bed centre and pauses again.</li>
-        <li>Measure from the nozzle tip to the cross centre: X error = cross X - nozzle X (cross to the right = positive), Y error = cross Y - nozzle Y (cross towards the back = positive).</li>
-        <li>Enter the errors below and press Apply: they are ADDED to the current offsets. Repeat until the error is under ~0.5 mm.</li>
-      </ol>
-      <button class="btn" id="calPreview">Show on bed</button>
-      <button class="btn primary" id="calExport">Download calibration .gcode.3mf</button>
-      <div class="row2">
-        <div><label for="errx">Measured X error (mm)</label><input type="number" id="errx" step="0.1" value="0"></div>
-        <div><label for="erry">Measured Y error (mm)</label><input type="number" id="erry" step="0.1" value="0"></div>
-      </div>
-      <button class="btn" id="applyErr">Apply to offsets</button>
-      <div class="msgs" id="calMsgs"></div>
+      <section class="step">
+        <h2>Draw the target</h2>
+        <ol>
+          <li>Print the calibration job, pen out.</li>
+          <li>At the first pause, set the pen on the 10 mm cube, remove the cube, Resume.</li>
+          <li>It draws a 30 mm cross and 10 mm circle where it thinks the pen is at bed centre, then parks the <b>nozzle</b> over bed centre and pauses.</li>
+        </ol>
+        <div class="btns">
+          <button class="btn primary" id="calExport">Download calibration .gcode.3mf</button>
+          <button class="btn" id="calPreview">Show on bed</button>
+        </div>
+      </section>
+      <section class="step">
+        <h2>Measure &amp; correct</h2>
+        <p class="hint" style="margin-top:0">Error = cross position minus nozzle position (cross to the right or further back is positive). It is added to the current offsets; repeat until under 0.5 mm.</p>
+        <div class="row2">
+          <div><label for="errx">X error mm</label><input type="number" id="errx" step="0.1" value="0"></div>
+          <div><label for="erry">Y error mm</label><input type="number" id="erry" step="0.1" value="0"></div>
+        </div>
+        <div class="btns"><button class="btn" id="applyErr">Apply to offsets</button></div>
+        <div class="msgs" id="calMsgs"></div>
+      </section>
     </div>
-  </section>
+  </div>
 </main>
 
 <script>
@@ -366,7 +464,7 @@ function fillControls(c) {
   const sync = () => { spacing.hidden = f.mode !== "hatch" && f.mode !== "cross"; angle.hidden = f.mode === "none"; };
   mode.addEventListener("change", () => { f.mode = mode.value; sync(); schedulePlan(); });
   sync();
-  const txt = document.createElement("span"); txt.textContent = `${c.fills} filled shape${c.fills === 1 ? "" : "s"}:`;
+  const txt = document.createElement("span"); txt.textContent = `Fill (${c.fills})`;
   box.append(txt, mode, spacing, angle);
   return box;
 }
@@ -396,7 +494,8 @@ function showPens() {
     const row = document.createElement("div"); row.className = "pen";
     const sw = document.createElement("div"); sw.className = "sw"; sw.style.background = c.colour;
     const txt = document.createElement("span");
-    txt.textContent = `${c.colour} - ${c.strokes ? `${c.strokes} stroke${c.strokes === 1 ? "" : "s"}` : "fill only"}`;
+    const hex = document.createElement("b"); hex.className = "hex"; hex.textContent = c.colour;
+    txt.append(hex, ` \u00b7 ${c.strokes ? `${c.strokes} stroke${c.strokes === 1 ? "" : "s"}` : "fill only"}`);
     const sel = document.createElement("select"); sel.setAttribute("aria-label", `Pen for ${c.colour}`);
     for (let n = 1; n <= colours.length; n++) sel.add(new Option(`Pen ${n}`, n));
     sel.add(new Option("Skip", 0));
@@ -477,7 +576,7 @@ function showEditor() {
   if (!it) return;
   $("width").value = +it.width.toFixed(1); $("height").value = +it.height.toFixed(1); $("rot").value = +it.rot.toFixed(1);
   $("posx").value = +it.x.toFixed(1); $("posy").value = +it.y.toFixed(1);
-  $("sizeHint").textContent = `${it.name}: ${it.width.toFixed(1)} x ${it.height.toFixed(1)} mm (before turning). X/Y is its centre.`;
+  $("sizeHint").textContent = `${it.width.toFixed(1)} \u00d7 ${it.height.toFixed(1)} mm before rotation`;
 }
 
 function removeItem(i) {
