@@ -1,0 +1,7 @@
+# Keep CAD exports byte-for-byte
+*.f3d binary
+*.step -text
+*.sat -text
+*.obj -text
+*.mtl -text
+*.3mf binary

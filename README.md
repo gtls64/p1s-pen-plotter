@@ -75,6 +75,20 @@ and run `python plotter_desktop.py`.
 4. When the printer pauses at the front, put the 10 mm cube under the pen, let the pen tip rest on
    it, tighten the holder, remove the cube and resume. It pauses the same way for each pen change.
 
+## Hardware
+
+The pen attachment is in [`hardware/`](hardware):
+
+| File | Use it for |
+|---|---|
+| `p1s-pen-plotter.f3d` | Editing in Autodesk Fusion |
+| `p1s-pen-plotter.step` | Any other CAD program (FreeCAD, Onshape, SolidWorks...) |
+| `p1s-pen-plotter.sat` | CAD programs that read ACIS |
+| `p1s-pen-plotter.obj` + `.mtl` | Viewing or rendering as a mesh |
+
+Measure how far your holder reaches in front of the nozzle and enter it as **Holder reach** in Settings,
+so the head never hits the front of the printer.
+
 ## Development
 
 ```
@@ -84,6 +98,7 @@ pytest
 - `app/`: FastAPI backend (SVG parsing, geometry, G-code, `.gcode.3mf` packaging)
 - `static/index.html`: the whole user interface
 - `packaging/`: desktop app and installer build scripts
+- `hardware/`: CAD files for the pen attachment
 - `tests/`: unit and safety tests
 
 Contributions are welcome. Any change to the G-code must keep the safety tests passing.
